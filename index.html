@@ -118,11 +118,11 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 #v3d{position:fixed; inset:0; z-index:200; background:radial-gradient(circle at 50% 30%, #1a2233, #0a0d14); display:none;}
 #v3d.open{display:block;}
 #v3d canvas{display:block; width:100%; height:100%; touch-action:none;}
-#v3dBar{position:absolute; top:12px; inset-inline-start:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center;
-  background:rgba(22,27,38,.82); border:1px solid var(--line); border-radius:12px; padding:7px 10px; backdrop-filter:blur(8px); flex-wrap:wrap; max-width:94vw;}
+#v3dBar{position:absolute; top:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; justify-content:center;
+  background:rgba(22,27,38,.82); border:1px solid var(--line); border-radius:12px; padding:7px 10px; backdrop-filter:blur(8px); flex-wrap:wrap; max-width:94vw; z-index:2;}
 #v3dBar .v3d-title{font-size:13px; font-weight:700; color:var(--accent); margin-inline-end:4px;}
-#v3dHint{position:absolute; bottom:14px; inset-inline-start:50%; transform:translateX(-50%); color:var(--ink2);
-  font-size:12px; background:rgba(22,27,38,.7); border:1px solid var(--line); border-radius:10px; padding:6px 12px; text-align:center; max-width:90vw;}
+#v3dHint{position:absolute; bottom:14px; left:50%; transform:translateX(-50%); color:var(--ink2);
+  font-size:12px; background:rgba(22,27,38,.7); border:1px solid var(--line); border-radius:10px; padding:6px 12px; text-align:center; max-width:90vw; z-index:2;}
 #v3dLoading{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; color:var(--ink2); font-size:14px;}
 .v3d-spin{width:38px; height:38px; border:3px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:v3dspin .8s linear infinite;}
 @keyframes v3dspin{to{transform:rotate(360deg);}}
