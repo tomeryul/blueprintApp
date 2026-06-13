@@ -235,15 +235,6 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
           </select>
         </div>
         <div class="field"><label>קישור למוצר (אופציונלי) 🔗</label><input id="cLink" type="url" inputmode="url" placeholder="https://... איפה לקנות"></div>
-        <div class="field">
-          <label>תמונת המוצר 📷 (אופציונלי)</label>
-          <div style="display:flex; gap:6px;">
-            <button type="button" class="btn small" id="cImgBtn" style="flex:1;">📷 בחר תמונה</button>
-            <button type="button" class="btn small" id="cImgClear" style="display:none; color:var(--danger);">הסר</button>
-          </div>
-          <img id="cImgPreview" alt="" style="display:none; width:100%; max-height:120px; object-fit:contain; margin-top:8px; border:1px solid var(--line); border-radius:8px; background:#0b0e14;">
-          <input type="file" id="cImgFile" accept="image/*" hidden>
-        </div>
         <button class="btn primary" style="width:100%;" id="addCustom">הוספה לתוכנית</button>
         <button class="btn" style="width:100%; margin-top:6px; display:none;" id="cancelEditBtn">ביטול עריכה</button>
       </div>
@@ -467,19 +458,6 @@ function shapeNode(it){
     }
     return el('rect',{x:x0, y:y0, width:W, height:H, rx:5});
   };
-  if(it.img){
-    const g=el('g');
-    const bg=outline(); bg.setAttribute('fill', c+'33'); bg.setAttribute('stroke','none'); g.appendChild(bg);
-    const cid='clip-'+it.id;
-    const cp=el('clipPath',{id:cid}); cp.appendChild(outline()); g.appendChild(cp);
-    const im=el('image',{x:x0, y:y0, width:W, height:H, preserveAspectRatio:'xMidYMid meet', 'clip-path':`url(#${cid})`});
-    im.setAttribute('href', it.img);
-    g.appendChild(im);
-    const bord=outline(); bord.setAttribute('class','body'); bord.setAttribute('fill','none');
-    bord.setAttribute('stroke', c); bord.setAttribute('stroke-width','1.5');
-    g.appendChild(bord);
-    return g;
-  }
   const o=outline(); o.setAttribute('class','body'); o.setAttribute('fill', c+'4d'); o.setAttribute('stroke', c);
   if(it.shape==='L') o.setAttribute('stroke-linejoin','round');
   return o;
@@ -1020,33 +998,6 @@ function getSel(){ return items.find(i=>i.id===selId); }
 
 /* --- טופס פריט: הוספה ועריכה --- */
 let editingId=null;
-let formImg=null;   // תמונת מוצר זמנית בטופס (data URL)
-function updateFormImg(){
-  const pv=document.getElementById('cImgPreview'), clr=document.getElementById('cImgClear');
-  if(formImg){ pv.src=formImg; pv.style.display='block'; clr.style.display='inline-block'; }
-  else { pv.removeAttribute('src'); pv.style.display='none'; clr.style.display='none'; }
-}
-document.getElementById('cImgBtn').onclick=()=>document.getElementById('cImgFile').click();
-document.getElementById('cImgClear').onclick=()=>{ formImg=null; updateFormImg(); };
-document.getElementById('cImgFile').onchange=e=>{
-  const f=e.target.files[0]; e.target.value='';
-  if(!f) return;
-  const r=new FileReader();
-  r.onload=()=>{
-    const im=new Image();
-    im.onload=()=>{
-      const max=320, sc=Math.min(1, max/Math.max(im.naturalWidth,im.naturalHeight));
-      const w=Math.max(1,Math.round(im.naturalWidth*sc)), h=Math.max(1,Math.round(im.naturalHeight*sc));
-      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-      cv.getContext('2d').drawImage(im,0,0,w,h);
-      formImg=cv.toDataURL('image/png');   // PNG לשמירת רקע שקוף
-      updateFormImg();
-    };
-    im.onerror=()=>alert('לא ניתן לקרוא את התמונה.');
-    im.src=r.result;
-  };
-  r.readAsDataURL(f);
-};
 const cShape=document.getElementById('cShape'), lFields=document.getElementById('lFields');
 cShape.onchange=()=>{
   lFields.style.display = cShape.value==='L' ? 'block':'none';
@@ -1062,7 +1013,6 @@ function readFormSpec(){
     shape: cShape.value,
     link: normalizeUrl(document.getElementById('cLink').value.trim()),
     h: +document.getElementById('cHeight').value||0,   // 0 = גובה אוטומטי
-    img: formImg||'',
   };
   if(spec.shape==='L'){
     spec.cw=Math.min(+document.getElementById('cCW').value||100, spec.w);
@@ -1090,7 +1040,6 @@ function startItemEdit(it){
   document.getElementById('cCat').value=it.cat;
   document.getElementById('cLink').value=it.link||'';
   document.getElementById('cHeight').value=it.h>0?it.h:'';
-  formImg=it.img||null; updateFormImg();
   cShape.value=it.shape||'rect';
   if(it.shape==='L'){
     document.getElementById('cCW').value=it.cw;
@@ -1111,7 +1060,6 @@ function cancelItemEdit(){
   document.getElementById('cName').value='';
   document.getElementById('cLink').value='';
   document.getElementById('cHeight').value='';
-  formImg=null; updateFormImg();
 }
 /* נרמול קישור: הוספת https:// אם חסר, החזרת '' אם ריק */
 function normalizeUrl(u){
@@ -1521,6 +1469,122 @@ updateScaleUI();
     return grp;
   }
 
+  /* ===== מודלים תלת-ממדיים של רהיטים ===== */
+  function tint(c,a){ let r=(c>>16)&255,g=(c>>8)&255,bl=c&255;
+    r=Math.min(255,Math.max(0,r+a)); g=Math.min(255,Math.max(0,g+a)); bl=Math.min(255,Math.max(0,bl+a));
+    return (r<<16)|(g<<8)|bl; }
+  function fmat(c,rough){ return new THREE.MeshStandardMaterial({color:c, roughness:rough==null?0.7:rough, metalness:0.04}); }
+  function fbox(g,w,hh,d,x,y,z,c,rough){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.5,Math.abs(w)),Math.max(0.5,Math.abs(hh)),Math.max(0.5,Math.abs(d))), fmat(c,rough));
+    m.position.set(x,y,z); addEdges(m); g.add(m); return m;
+  }
+  function modelType(it){
+    if(it.shape==='L') return 'sofaL';
+    const n=it.name||'', has=(...w)=>w.some(s=>n.includes(s));
+    if(has('ספה')) return 'sofa';
+    if(has('כורסה')) return 'armchair';
+    if(has('מיטה')||has('עריסה')) return 'bed';
+    if(has('כיסא')) return 'chair';
+    if(has('שולחן')||has('אי מטבח')) return 'table';
+    if(has('מקרר')) return 'fridge';
+    if(has('תנור')||has('מדיח')||has('מכונת')||has('מייבש')) return 'appliance';
+    if(has('שטיח')) return 'rug';
+    if(has('ארון')||has('כוורת')||has('ספריה')||has('קומודה')||has('שידה')||has('ארונית')||has('מזנון')) return 'cabinet';
+    return 'box';
+  }
+  function furnitureModel(it,bw,bh,h,col){
+    const g=new THREE.Group();
+    switch(modelType(it)){
+      case 'sofa':     sofaModel(g,bw,bh,h,col,false); break;
+      case 'armchair': sofaModel(g,bw,bh,h,col,true); break;
+      case 'sofaL':    sofaLModel(g,it,bw,bh,h,col); break;
+      case 'bed':      bedModel(g,bw,bh,h,col); break;
+      case 'chair':    chairModel(g,bw,bh,h,col); break;
+      case 'table':    tableModel(g,it,bw,bh,h,col); break;
+      case 'fridge':   applianceModel(g,bw,bh,h,col,true); break;
+      case 'appliance':applianceModel(g,bw,bh,h,col,false); break;
+      case 'cabinet':  cabinetModel(g,bw,bh,h,col); break;
+      case 'rug':      fbox(g,bw,Math.max(1.2,h),bh,0,Math.max(0.6,h/2),0,col,0.95); break;
+      default:
+        if(it.shape==='ellipse'){ const m=new THREE.Mesh(new THREE.CylinderGeometry(bw/2,bw/2,h,40),fmat(col)); m.scale.z=bh/bw; m.position.y=h/2; addEdges(m); g.add(m); }
+        else fbox(g,bw,h,bh,0,h/2,0,col);
+    }
+    return g;
+  }
+  function sofaModel(g,bw,bh,h,col,single){
+    const seatY=h*0.42, armW=Math.min(bw*(single?0.18:0.12), 22), backD=Math.max(bh*0.16,10);
+    fbox(g,bw,seatY,bh,0,seatY/2,0,col);                                  // base
+    fbox(g,bw,h*0.62,backD,0,seatY+h*0.31,-(bh/2-backD/2),col);           // backrest
+    fbox(g,armW,h*0.52,bh,-(bw/2-armW/2),h*0.26,0,tint(col,-18));         // arm L
+    fbox(g,armW,h*0.52,bh,(bw/2-armW/2),h*0.26,0,tint(col,-18));          // arm R
+    const innerW=Math.max(10,bw-2*armW), cushD=bh-backD;
+    const n=single?1:(innerW>150?3:(innerW>95?2:1));
+    for(let i=0;i<n;i++){ const cw=innerW/n*0.92, cx=-innerW/2+innerW/n*(i+0.5);
+      fbox(g,cw,h*0.14,cushD*0.86,cx,seatY+h*0.07,backD*0.2,tint(col,24));            // seat cushion
+      fbox(g,cw,h*0.3,Math.max(6,backD*0.5),cx,seatY+h*0.22,-(bh/2-backD*0.7),tint(col,12)); } // back cushion
+  }
+  function sofaLModel(g,it,bw,bh,h,col){
+    const w=it.w, d=it.d, cw=Math.min(it.cw,it.w), cd=it.cd, side=it.side;
+    const seatY=h*0.4;
+    const lgeo=(height)=>{
+      const sh=new THREE.Shape();
+      if(side==='l'){ sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-d); sh.lineTo(cw,-d); sh.lineTo(cw,-cd); sh.lineTo(0,-cd); }
+      else { sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-cd); sh.lineTo(w-cw,-cd); sh.lineTo(w-cw,-d); sh.lineTo(0,-d); }
+      sh.closePath();
+      const geo=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false});
+      geo.rotateX(-Math.PI/2); geo.computeBoundingBox();
+      const bb=geo.boundingBox; geo.translate(-(bb.min.x+bb.max.x)/2,-bb.min.y,-(bb.min.z+bb.max.z)/2);
+      return geo;
+    };
+    const base=new THREE.Mesh(lgeo(seatY),fmat(col)); base.material.side=THREE.DoubleSide; addEdges(base); g.add(base);
+    const cu=new THREE.Mesh(lgeo(h*0.14),fmat(tint(col,24))); cu.material.side=THREE.DoubleSide; cu.position.y=seatY; cu.scale.set(0.92,1,0.92); addEdges(cu); g.add(cu);
+    const backD=Math.max(bh*0.14,10);
+    fbox(g,w,h*0.6,backD,0,seatY+h*0.3,-(bh/2-backD/2),col);              // backrest along main back
+  }
+  function bedModel(g,bw,bh,h,col){
+    const frameH=h*0.5;
+    fbox(g,bw,frameH,bh,0,frameH/2,0,tint(col,-25));                      // frame
+    fbox(g,bw*0.96,h*0.26,bh*0.97,0,frameH+h*0.13,0,tint(col,45));        // mattress
+    fbox(g,bw,h*0.9,Math.max(6,bh*0.05),0,h*0.45,-(bh/2-bh*0.025),tint(col,-25)); // headboard
+    const pw=bw*0.42, py=frameH+h*0.28;
+    fbox(g,pw,h*0.1,bh*0.16,-(bw*0.24),py,-(bh*0.3),tint(col,90));
+    fbox(g,pw,h*0.1,bh*0.16,(bw*0.24),py,-(bh*0.3),tint(col,90));
+  }
+  function chairModel(g,bw,bh,h,col){
+    const seatY=h*0.5, legT=Math.max(2.5,Math.min(bw,bh)*0.08), lx=bw/2-legT/2-1, lz=bh/2-legT/2-1;
+    for(const sx of [-1,1]) for(const sz of [-1,1]) fbox(g,legT,seatY,legT,sx*lx,seatY/2,sz*lz,tint(col,-45));
+    fbox(g,bw,Math.max(4,h*0.08),bh,0,seatY+h*0.04,0,col);               // seat
+    fbox(g,bw,h*0.42,Math.max(4,bh*0.1),0,seatY+h*0.25,-(bh/2-bh*0.05),col); // backrest
+  }
+  function tableModel(g,it,bw,bh,h,col){
+    const topH=Math.max(3,h*0.1);
+    if(it.shape==='ellipse'){
+      const top=new THREE.Mesh(new THREE.CylinderGeometry(bw/2,bw/2,topH,36),fmat(col)); top.scale.z=bh/bw; top.position.y=h-topH/2; addEdges(top); g.add(top);
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(Math.max(3,bw*0.05),Math.max(3,bw*0.05),h-topH,20),fmat(tint(col,-40))); pole.position.y=(h-topH)/2; g.add(pole);
+      const base=new THREE.Mesh(new THREE.CylinderGeometry(bw*0.24,bw*0.28,Math.max(2,h*0.04),24),fmat(tint(col,-40))); base.position.y=h*0.02; g.add(base);
+    } else {
+      fbox(g,bw,topH,bh,0,h-topH/2,0,col);
+      const legT=Math.max(3,Math.min(bw,bh)*0.07), lx=bw/2-legT/2-1, lz=bh/2-legT/2-1;
+      for(const sx of [-1,1]) for(const sz of [-1,1]) fbox(g,legT,h-topH,legT,sx*lx,(h-topH)/2,sz*lz,tint(col,-40));
+    }
+  }
+  function cabinetModel(g,bw,bh,h,col){
+    fbox(g,bw,h,bh,0,h/2,0,col);
+    fbox(g,Math.max(1.2,bw*0.012),h*0.94,1,0,h/2,bh/2+0.6,tint(col,-70));  // door seam
+    fbox(g,Math.max(1.5,bw*0.015),h*0.12,2.5,-(bw*0.05),h*0.5,bh/2+1,0x2a2a2a);
+    fbox(g,Math.max(1.5,bw*0.015),h*0.12,2.5,(bw*0.05),h*0.5,bh/2+1,0x2a2a2a);
+  }
+  function applianceModel(g,bw,bh,h,col,fridge){
+    fbox(g,bw,h,bh,0,h/2,0,col);
+    if(fridge){
+      fbox(g,bw*1.005,Math.max(1.5,h*0.012),bh*1.005,0,h*0.62,0,tint(col,-55)); // freezer divider
+      fbox(g,Math.max(1.5,bw*0.04),h*0.2,2.5,(bw/2-bw*0.14),h*0.78,bh/2+1,0x999999);
+      fbox(g,Math.max(1.5,bw*0.04),h*0.2,2.5,(bw/2-bw*0.14),h*0.4,bh/2+1,0x999999);
+    } else {
+      fbox(g,bw*0.7,h*0.55,1,0,h*0.5,bh/2+0.6,tint(col,-35));            // front panel
+    }
+  }
+
   function buildScene(){
     clearScene();
     const kk=k();
@@ -1586,43 +1650,11 @@ updateScaleUI();
       const h=heightOf(it);
       const col=(typeof CATS!=='undefined' && CATS[it.cat]? CATS[it.cat].color : '#d4dce8');
       const colInt=hexToInt(col);
-      const mat=new THREE.MeshStandardMaterial({color:colInt, roughness:0.65, metalness:0.05});
-      let mesh, baseY=h/2;                  // baseY מרים את בסיס הצורה לרצפה
-      if(it.img){
-        // ביל-בורד: שני מישורים מצטלבים עם תמונת המוצר (חיתוך רקע שקוף) — נראה כמו הרהיט, לא קופסה
-        const tex=new THREE.TextureLoader().load(it.img, ()=>render()); tex.anisotropy=4;
-        const bmat=new THREE.MeshBasicMaterial({map:tex, transparent:true, alphaTest:0.5, side:THREE.DoubleSide, toneMapped:false});
-        const g2=new THREE.Group();
-        const p1=new THREE.Mesh(new THREE.PlaneGeometry(b.bw,h), bmat); p1.position.y=h/2;
-        const p2=p1.clone(); p2.rotation.y=Math.PI/2;
-        g2.add(p1); g2.add(p2);
-        mesh=g2; baseY=0;
-      } else if(it.shape==='ellipse'){
-        mesh=new THREE.Mesh(new THREE.CylinderGeometry(b.bw/2,b.bw/2,h,40), mat);
-        mesh.scale.z=b.bh/b.bw;             // אליפסה
-      } else if(it.shape==='L'){
-        const w=it.w, d=it.d, cw=Math.min(it.cw,it.w), cd=it.cd;
-        const sh=new THREE.Shape();
-        // y מנוגד: אחרי rotateX(-90) צורת-y ממופה ל-Z. שלילה מבטיחה screen-y -> +Z כמו המיקום (אחרת השזלונג יוצא מראה הפוכה)
-        if(it.side==='l'){ sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-d); sh.lineTo(cw,-d); sh.lineTo(cw,-cd); sh.lineTo(0,-cd); }
-        else { sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-cd); sh.lineTo(w-cw,-cd); sh.lineTo(w-cw,-d); sh.lineTo(0,-d); }
-        sh.closePath();
-        const geo=new THREE.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false});
-        geo.rotateX(-Math.PI/2);            // הוצאה כלפי מעלה (z->y)
-        geo.computeBoundingBox();
-        const bb=geo.boundingBox;
-        geo.translate(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
-        mat.side=THREE.DoubleSide;           // בשל היפוך ה-y, מציגים שני צדדים כדי שהתאורה תקינה
-        mesh=new THREE.Mesh(geo,mat); baseY=0;   // הבסיס כבר על y=0
-      } else {
-        mesh=new THREE.Mesh(new THREE.BoxGeometry(b.bw,h,b.bh), mat);
-      }
-      // מיקום: מרכז הפריט בפיקסלים -> ס"מ
+      // מודל תלת-ממדי לפי סוג הרהיט (footprint ממורכז, בסיס ב-y=0)
+      const mesh=furnitureModel(it, b.bw, b.bh, h, colInt);
       const bp=boundsPx(it);
       const ctrX=(it.x+bp.rw/2)/kk, ctrZ=(it.y+bp.rh/2)/kk;
       const grp=new THREE.Group();
-      mesh.position.y=baseY;
-      addEdges(mesh);
       grp.add(mesh);
       grp.position.set(ctrX,0,ctrZ);
       grp.rotation.y=-it.rot*Math.PI/180;
