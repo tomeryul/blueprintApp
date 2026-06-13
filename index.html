@@ -235,6 +235,15 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
           </select>
         </div>
         <div class="field"><label>קישור למוצר (אופציונלי) 🔗</label><input id="cLink" type="url" inputmode="url" placeholder="https://... איפה לקנות"></div>
+        <div class="field">
+          <label>תמונת המוצר 📷 (אופציונלי)</label>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn small" id="cImgBtn" style="flex:1;">📷 בחר תמונה</button>
+            <button type="button" class="btn small" id="cImgClear" style="display:none; color:var(--danger);">הסר</button>
+          </div>
+          <img id="cImgPreview" alt="" style="display:none; width:100%; max-height:120px; object-fit:contain; margin-top:8px; border:1px solid var(--line); border-radius:8px; background:#0b0e14;">
+          <input type="file" id="cImgFile" accept="image/*" hidden>
+        </div>
         <button class="btn primary" style="width:100%;" id="addCustom">הוספה לתוכנית</button>
         <button class="btn" style="width:100%; margin-top:6px; display:none;" id="cancelEditBtn">ביטול עריכה</button>
       </div>
@@ -445,18 +454,34 @@ function shapeNode(it){
   const k=ppc(), {W,H}=boundsPx(it);
   const x0=-W/2, y0=-H/2;
   const c=CATS[it.cat].color;
-  const attrs={class:'body', fill:c+'4d', stroke:c};
-  if(it.shape==='ellipse')
-    return el('ellipse',{...attrs, cx:0, cy:0, rx:W/2, ry:H/2});
-  if(it.shape==='L'){
-    const w=it.w*k, d=it.d*k, cw=Math.min(it.cw,it.w)*k, cd=it.cd*k;
-    const pts = it.side==='l'
-      ? [[0,0],[w,0],[w,d],[cw,d],[cw,cd],[0,cd]]
-      : [[0,0],[w,0],[w,cd],[w-cw,cd],[w-cw,d],[0,d]];
-    const dStr='M'+pts.map(p=>(p[0]+x0).toFixed(1)+','+(p[1]+y0).toFixed(1)).join(' L ')+' Z';
-    return el('path',{...attrs, d:dStr, 'stroke-linejoin':'round'});
+  // יוצר את צורת המתאר (ללא צבע) — משמש גם כגוף וגם כחיתוך לתמונה
+  const outline=()=>{
+    if(it.shape==='ellipse') return el('ellipse',{cx:0, cy:0, rx:W/2, ry:H/2});
+    if(it.shape==='L'){
+      const w=it.w*k, d=it.d*k, cw=Math.min(it.cw,it.w)*k, cd=it.cd*k;
+      const pts = it.side==='l'
+        ? [[0,0],[w,0],[w,d],[cw,d],[cw,cd],[0,cd]]
+        : [[0,0],[w,0],[w,cd],[w-cw,cd],[w-cw,d],[0,d]];
+      const dStr='M'+pts.map(p=>(p[0]+x0).toFixed(1)+','+(p[1]+y0).toFixed(1)).join(' L ')+' Z';
+      return el('path',{d:dStr, 'stroke-linejoin':'round'});
+    }
+    return el('rect',{x:x0, y:y0, width:W, height:H, rx:5});
+  };
+  if(it.img){
+    const g=el('g');
+    const cid='clip-'+it.id;
+    const cp=el('clipPath',{id:cid}); cp.appendChild(outline()); g.appendChild(cp);
+    const im=el('image',{x:x0, y:y0, width:W, height:H, preserveAspectRatio:'xMidYMid slice', 'clip-path':`url(#${cid})`});
+    im.setAttribute('href', it.img);
+    g.appendChild(im);
+    const bord=outline(); bord.setAttribute('class','body'); bord.setAttribute('fill','none');
+    bord.setAttribute('stroke', c); bord.setAttribute('stroke-width','1.5');
+    g.appendChild(bord);
+    return g;
   }
-  return el('rect',{...attrs, x:x0, y:y0, width:W, height:H, rx:5});
+  const o=outline(); o.setAttribute('class','body'); o.setAttribute('fill', c+'4d'); o.setAttribute('stroke', c);
+  if(it.shape==='L') o.setAttribute('stroke-linejoin','round');
+  return o;
 }
 /* סיבוב פריט סביב מרכזו */
 function rotateItem(it){
@@ -994,6 +1019,33 @@ function getSel(){ return items.find(i=>i.id===selId); }
 
 /* --- טופס פריט: הוספה ועריכה --- */
 let editingId=null;
+let formImg=null;   // תמונת מוצר זמנית בטופס (data URL)
+function updateFormImg(){
+  const pv=document.getElementById('cImgPreview'), clr=document.getElementById('cImgClear');
+  if(formImg){ pv.src=formImg; pv.style.display='block'; clr.style.display='inline-block'; }
+  else { pv.removeAttribute('src'); pv.style.display='none'; clr.style.display='none'; }
+}
+document.getElementById('cImgBtn').onclick=()=>document.getElementById('cImgFile').click();
+document.getElementById('cImgClear').onclick=()=>{ formImg=null; updateFormImg(); };
+document.getElementById('cImgFile').onchange=e=>{
+  const f=e.target.files[0]; e.target.value='';
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const im=new Image();
+    im.onload=()=>{
+      const max=320, sc=Math.min(1, max/Math.max(im.naturalWidth,im.naturalHeight));
+      const w=Math.max(1,Math.round(im.naturalWidth*sc)), h=Math.max(1,Math.round(im.naturalHeight*sc));
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(im,0,0,w,h);
+      formImg=cv.toDataURL('image/jpeg',0.85);
+      updateFormImg();
+    };
+    im.onerror=()=>alert('לא ניתן לקרוא את התמונה.');
+    im.src=r.result;
+  };
+  r.readAsDataURL(f);
+};
 const cShape=document.getElementById('cShape'), lFields=document.getElementById('lFields');
 cShape.onchange=()=>{
   lFields.style.display = cShape.value==='L' ? 'block':'none';
@@ -1009,6 +1061,7 @@ function readFormSpec(){
     shape: cShape.value,
     link: normalizeUrl(document.getElementById('cLink').value.trim()),
     h: +document.getElementById('cHeight').value||0,   // 0 = גובה אוטומטי
+    img: formImg||'',
   };
   if(spec.shape==='L'){
     spec.cw=Math.min(+document.getElementById('cCW').value||100, spec.w);
@@ -1036,6 +1089,7 @@ function startItemEdit(it){
   document.getElementById('cCat').value=it.cat;
   document.getElementById('cLink').value=it.link||'';
   document.getElementById('cHeight').value=it.h>0?it.h:'';
+  formImg=it.img||null; updateFormImg();
   cShape.value=it.shape||'rect';
   if(it.shape==='L'){
     document.getElementById('cCW').value=it.cw;
@@ -1056,6 +1110,7 @@ function cancelItemEdit(){
   document.getElementById('cName').value='';
   document.getElementById('cLink').value='';
   document.getElementById('cHeight').value='';
+  formImg=null; updateFormImg();
 }
 /* נרמול קישור: הוספת https:// אם חסר, החזרת '' אם ריק */
 function normalizeUrl(u){
@@ -1531,6 +1586,7 @@ updateScaleUI();
       const col=(typeof CATS!=='undefined' && CATS[it.cat]? CATS[it.cat].color : '#d4dce8');
       const colInt=hexToInt(col);
       const mat=new THREE.MeshStandardMaterial({color:colInt, roughness:0.65, metalness:0.05});
+      if(it.img){ const tex=new THREE.TextureLoader().load(it.img, ()=>render()); tex.anisotropy=4; mat.map=tex; mat.color.set(0xffffff); }
       let mesh, baseY=h/2;                  // baseY מרים את בסיס הצורה לרצפה
       if(it.shape==='ellipse'){
         mesh=new THREE.Mesh(new THREE.CylinderGeometry(b.bw/2,b.bw/2,h,40), mat);
