@@ -1161,13 +1161,18 @@ function autoDetectWalls(){
         return out;
       };
       const H2=merge(rawH,'y'), V2=merge(rawV,'x');
-      edits=edits.filter(e=>!e.auto);
-      const inv=1/scale, ww=Math.max(3,Math.round(8*ppc()));
-      for(const s of H2) edits.push({type:'line',auto:true,x1:Math.round(s.a*inv),y1:Math.round(s.y*inv),x2:Math.round(s.b*inv),y2:Math.round(s.y*inv),w:ww});
-      for(const s of V2) edits.push({type:'line',auto:true,x1:Math.round(s.x*inv),y1:Math.round(s.a*inv),x2:Math.round(s.x*inv),y2:Math.round(s.b*inv),w:ww});
-      renderEdits();
+      items=items.filter(i=>!i.auto); edits=edits.filter(e=>!e.auto);
+      const inv=1/scale, ww=Math.max(3,Math.round(8*ppc())), P=ppc();
+      const addWall=(lenPx,thPx,cx,cy,rot)=>{
+        const it={id:nextId++, kind:'wall', name:'קיר (אוטו)', shape:'rect', cat:'other', auto:true, rot, w:lenPx/P, d:thPx/P};
+        const b=boundsPx(it); it.x=Math.round(cx-b.rw/2); it.y=Math.round(cy-b.rh/2);
+        items.push(it);
+      };
+      for(const s of H2) addWall((s.b-s.a)*inv, ww, ((s.a+s.b)/2)*inv, s.y*inv, 0);
+      for(const s of V2) addWall((s.b-s.a)*inv, ww, s.x*inv, ((s.a+s.b)/2)*inv, 90);
+      selId=null; renderFurniture();
       const n=H2.length+V2.length;
-      alert(n? ('זוהו '+n+' קירות 🧱\nבדקו ותקנו במצב ✏️ עריכת תרשים, או נקו עם 🧹.') : 'לא זוהו קירות. נסו לכייל (📏) קודם, או שהקווים בתרשים דקים מדי.');
+      alert(n? ('זוהו '+n+' קירות 🧱\nכל קיר הוא רכיב נפרד — אפשר לבחור, להזיז ולמחוק כל אחד (✕ מחיקה). לניקוי כולם: 🧹.') : 'לא זוהו קירות. נסו לכייל (📏) קודם, או שהקווים בתרשים דקים מדי.');
     }catch(err){ alert('הזיהוי נכשל: '+err.message); }
     finally{ btn.textContent=old; btn.disabled=false; }
   };
@@ -1175,10 +1180,11 @@ function autoDetectWalls(){
   im.src=img.dataUrl;
 }
 function clearAutoWalls(){
-  const before=edits.length;
-  edits=edits.filter(e=>!e.auto);
-  renderEdits();
-  if(before===edits.length) alert('אין קירות אוטומטיים לניקוי.');
+  const before=items.length+edits.length;
+  items=items.filter(i=>!i.auto); edits=edits.filter(e=>!e.auto);
+  if(selId!=null && !items.find(i=>i.id===selId)) selId=null;
+  renderEdits(); renderFurniture();
+  if(before===items.length+edits.length) alert('אין קירות אוטומטיים לניקוי.');
 }
 document.getElementById('autoWallsBtn').onclick=autoDetectWalls;
 document.getElementById('clearAutoWallsBtn').onclick=clearAutoWalls;
