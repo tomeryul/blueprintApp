@@ -113,6 +113,19 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
   #scaleBadge{bottom:8px; inset-inline-end:8px;}
 }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important;} }
+
+/* ===== תצוגת תלת־ממד ===== */
+#v3d{position:fixed; inset:0; z-index:200; background:radial-gradient(circle at 50% 30%, #1a2233, #0a0d14); display:none;}
+#v3d.open{display:block;}
+#v3d canvas{display:block; width:100%; height:100%; touch-action:none;}
+#v3dBar{position:absolute; top:12px; inset-inline-start:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center;
+  background:rgba(22,27,38,.82); border:1px solid var(--line); border-radius:12px; padding:7px 10px; backdrop-filter:blur(8px); flex-wrap:wrap; max-width:94vw;}
+#v3dBar .v3d-title{font-size:13px; font-weight:700; color:var(--accent); margin-inline-end:4px;}
+#v3dHint{position:absolute; bottom:14px; inset-inline-start:50%; transform:translateX(-50%); color:var(--ink2);
+  font-size:12px; background:rgba(22,27,38,.7); border:1px solid var(--line); border-radius:10px; padding:6px 12px; text-align:center; max-width:90vw;}
+#v3dLoading{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; color:var(--ink2); font-size:14px;}
+.v3d-spin{width:38px; height:38px; border:3px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:v3dspin .8s linear infinite;}
+@keyframes v3dspin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -124,6 +137,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
   <button class="btn" id="rotImgBtn" title="סיבוב התרשים ב־90°">🔄</button>
   <button class="btn" id="newPlanBtn" title="החלפת תרשים">🖼️</button>
   <button class="btn" id="calibBtn">📏 כיול</button>
+  <button class="btn" id="view3dBtn">🧊 תלת־ממד</button>
   <button class="btn" id="importBtn">📂 טעינה</button>
   <button class="btn primary" id="exportBtn">💾 שמירה</button>
   <input type="file" id="importFile" accept=".json" hidden>
@@ -964,6 +978,247 @@ window.addEventListener('resize',fitView);
 renderCatalog();
 setImage(EMBEDDED_PLAN, ()=>renderFurniture());
 updateScaleUI();
+</script>
+
+<!-- ===== שכבת תצוגת תלת־ממד ===== -->
+<div id="v3d">
+  <div id="v3dBar">
+    <span class="v3d-title">🧊 תלת־ממד</span>
+    <button class="btn small" id="v3dWalls">קירות</button>
+    <button class="btn small" id="v3dLabels">שמות</button>
+    <button class="btn small" id="v3dReset">⤢ מבט</button>
+    <button class="btn small primary" id="v3dClose">✕ סגירה</button>
+  </div>
+  <div id="v3dHint">גרירה = סיבוב · שתי אצבעות / גלגלת = זום · גרירה ימנית = הזזה</div>
+  <div id="v3dLoading"><div class="v3d-spin"></div><div>טוען מנוע תלת־ממד…</div></div>
+</div>
+
+<script>
+/* ================= תצוגת תלת־ממד (Three.js, נטען בעצלתיים מ-CDN) ================= */
+(function(){
+  const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  const ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
+  const WALL_H = 260;          // גובה קיר בס"מ
+  let loaded=false, loading=false;
+  let renderer, scene, camera, controls, rafId=null, mountedCanvas=null;
+  let showWalls=true, showLabels=false;
+  const v3d=document.getElementById('v3d');
+  const loadingEl=document.getElementById('v3dLoading');
+
+  /* גובה משוער לכל פריט (ס"מ) לפי שם/קטגוריה */
+  function heightOf(it){
+    const n=it.name||'';
+    const has=(...w)=>w.some(s=>n.includes(s));
+    if(has('שטיח')) return 2;
+    if(has('מקרר')) return 180;
+    if(has('ארון')||has('כוורת')||has('ספריה')) return 200;
+    if(has('עריסה')) return 95;
+    if(has('מיטה')) return 50;
+    if(has('כיסא')||has('כורסה')) return 90;
+    if(has('ספה')) return 80;
+    if(has('שולחן סלון')) return 42;
+    if(has('שולחן')||has('אי מטבח')||has('מדיח')||has('מכונת כביסה')||has('מייבש')||has('שידת מגירות')||has('קומודה')) return 75;
+    if(has('שידת לילה')||has('מזנון')||has('ארונית')) return 55;
+    if(has('תנור')) return 90;
+    const byCat={salon:75,dining:75,kitchen:85,bedroom:90,work:75,laundry:85,other:75};
+    return byCat[it.cat]||75;
+  }
+  function hexToInt(h){ return parseInt(h.slice(1),16); }
+
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      const s=document.createElement('script'); s.src=src;
+      s.onload=res; s.onerror=()=>rej(new Error('failed '+src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function ensureThree(){
+    if(loaded) return true;
+    if(loading) return false;
+    loading=true;
+    try{
+      await loadScript(THREE_URL);
+      await loadScript(ORBIT_URL);
+      loaded=true; return true;
+    }catch(e){
+      alert('לא ניתן לטעון את מנוע התלת־ממד. נדרש חיבור לאינטרנט.');
+      loading=false; return false;
+    }
+  }
+
+  function clearScene(){
+    if(!scene) return;
+    for(let i=scene.children.length-1;i>=0;i--){
+      const o=scene.children[i];
+      scene.remove(o);
+      o.traverse&&o.traverse(c=>{ c.geometry&&c.geometry.dispose&&c.geometry.dispose();
+        if(c.material){ (Array.isArray(c.material)?c.material:[c.material]).forEach(m=>{ m.map&&m.map.dispose&&m.map.dispose(); m.dispose&&m.dispose(); }); } });
+    }
+  }
+
+  /* px -> cm */
+  function k(){ return (typeof ppc==='function'? ppc() : 1.35); }
+
+  function makeLabel(text,color){
+    const cv=document.createElement('canvas'); const pad=12, fs=42;
+    const ctx=cv.getContext('2d'); ctx.font=`700 ${fs}px Heebo, sans-serif`;
+    const tw=ctx.measureText(text).width; cv.width=tw+pad*2; cv.height=fs+pad*2;
+    const c2=cv.getContext('2d'); c2.font=`700 ${fs}px Heebo, sans-serif`;
+    c2.fillStyle='rgba(14,17,24,.78)'; c2.fillRect(0,0,cv.width,cv.height);
+    c2.fillStyle=color; c2.textBaseline='middle'; c2.textAlign='center';
+    c2.fillText(text,cv.width/2,cv.height/2);
+    const tex=new THREE.CanvasTexture(cv);
+    const mat=new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+    const sp=new THREE.Sprite(mat); sp.scale.set(cv.width/cv.height*22,22,1);
+    return sp;
+  }
+
+  function buildScene(){
+    clearScene();
+    const kk=k();
+    // תאורה
+    scene.add(new THREE.HemisphereLight(0xffffff,0x44506a,0.95));
+    const dir=new THREE.DirectionalLight(0xffffff,0.7); dir.position.set(300,600,200); scene.add(dir);
+
+    // מרכז הסצנה + מידות רצפה
+    let Wcm, Hcm, cx, cz;
+    if(typeof img!=='undefined' && img){
+      Wcm=img.w/kk; Hcm=img.h/kk; cx=Wcm/2; cz=Hcm/2;
+    } else if(items.length){
+      let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+      for(const it of items){ const b=boundsPx(it);
+        minx=Math.min(minx,it.x); miny=Math.min(miny,it.y);
+        maxx=Math.max(maxx,it.x+b.rw); maxy=Math.max(maxy,it.y+b.rh); }
+      Wcm=(maxx-minx)/kk; Hcm=(maxy-miny)/kk; cx=(minx+maxx)/2/kk; cz=(miny+maxy)/2/kk;
+    } else { Wcm=400; Hcm=400; cx=200; cz=200; }
+
+    // רצפה עם תמונת התרשים כטקסטורה
+    const floorMat=new THREE.MeshStandardMaterial({color:0x223049, roughness:1, metalness:0});
+    if(typeof img!=='undefined' && img && img.dataUrl){
+      const tex=new THREE.TextureLoader().load(img.dataUrl, ()=>render());
+      tex.anisotropy=4; floorMat.map=tex; floorMat.color.set(0xffffff);
+    }
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(Wcm,Hcm), floorMat);
+    floor.rotation.x=-Math.PI/2; floor.position.set(cx,0,cz); scene.add(floor);
+
+    // קירות מתוך עריכות מסוג 'line'
+    if(showWalls && typeof edits!=='undefined'){
+      const wallMat=new THREE.MeshStandardMaterial({color:0xb9c6dc, roughness:0.9});
+      for(const ed of edits){
+        if(ed.type!=='line') continue;
+        const x1=ed.x1/kk, z1=ed.y1/kk, x2=ed.x2/kk, z2=ed.y2/kk;
+        const len=Math.hypot(x2-x1,z2-z1); if(len<2) continue;
+        const th=Math.max(4,(ed.w||8)/kk);
+        const m=new THREE.Mesh(new THREE.BoxGeometry(len,WALL_H,th), wallMat);
+        m.position.set((x1+x2)/2, WALL_H/2, (z1+z2)/2);
+        m.rotation.y=-Math.atan2(z2-z1,x2-x1);
+        scene.add(m);
+      }
+    }
+
+    // ריהוט
+    const labels=[];
+    for(const it of items){
+      const b=boundsCm(it);                 // bw,bh בס"מ לפני סיבוב
+      const h=heightOf(it);
+      const col=(typeof CATS!=='undefined' && CATS[it.cat]? CATS[it.cat].color : '#d4dce8');
+      const colInt=hexToInt(col);
+      const mat=new THREE.MeshStandardMaterial({color:colInt, roughness:0.65, metalness:0.05});
+      let mesh, baseY=h/2;                  // baseY מרים את בסיס הצורה לרצפה
+      if(it.shape==='ellipse'){
+        mesh=new THREE.Mesh(new THREE.CylinderGeometry(b.bw/2,b.bw/2,h,40), mat);
+        mesh.scale.z=b.bh/b.bw;             // אליפסה
+      } else if(it.shape==='L'){
+        const w=it.w, d=it.d, cw=Math.min(it.cw,it.w), cd=it.cd;
+        const sh=new THREE.Shape();
+        if(it.side==='l'){ sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,d); sh.lineTo(cw,d); sh.lineTo(cw,cd); sh.lineTo(0,cd); }
+        else { sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,cd); sh.lineTo(w-cw,cd); sh.lineTo(w-cw,d); sh.lineTo(0,d); }
+        sh.closePath();
+        const geo=new THREE.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false});
+        geo.rotateX(-Math.PI/2);            // הוצאה כלפי מעלה (z->y)
+        geo.computeBoundingBox();
+        const bb=geo.boundingBox;
+        geo.translate(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
+        mesh=new THREE.Mesh(geo,mat); baseY=0;   // הבסיס כבר על y=0
+      } else {
+        mesh=new THREE.Mesh(new THREE.BoxGeometry(b.bw,h,b.bh), mat);
+      }
+      // מיקום: מרכז הפריט בפיקסלים -> ס"מ
+      const bp=boundsPx(it);
+      const ctrX=(it.x+bp.rw/2)/kk, ctrZ=(it.y+bp.rh/2)/kk;
+      const grp=new THREE.Group();
+      mesh.position.y=baseY;
+      grp.add(mesh);
+      grp.position.set(ctrX,0,ctrZ);
+      grp.rotation.y=-it.rot*Math.PI/180;
+      scene.add(grp);
+
+      const lbl=makeLabel(it.name, '#'+colInt.toString(16).padStart(6,'0'));
+      lbl.position.set(ctrX, h+16, ctrZ); lbl.visible=showLabels;
+      labels.push(lbl); scene.add(lbl);
+    }
+    scene.userData.labels=labels;
+    scene.userData.center=new THREE.Vector3(cx,0,cz);
+    scene.userData.span=Math.max(Wcm,Hcm,200);
+  }
+
+  function resetCamera(){
+    const c=scene.userData.center, span=scene.userData.span;
+    camera.position.set(c.x+span*0.05, span*0.95, c.z+span*0.95);
+    controls.target.copy(c); controls.update();
+  }
+
+  function render(){ renderer && renderer.render(scene,camera); }
+  function animate(){ rafId=requestAnimationFrame(animate); controls&&controls.update(); render(); }
+
+  function resize(){
+    if(!renderer) return;
+    const w=v3d.clientWidth, h=v3d.clientHeight;
+    renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); render();
+  }
+
+  function initRenderer(){
+    renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.setClearColor(0x000000,0);
+    mountedCanvas=renderer.domElement;
+    v3d.insertBefore(mountedCanvas, v3d.firstChild);
+    scene=new THREE.Scene();
+    camera=new THREE.PerspectiveCamera(50, v3d.clientWidth/v3d.clientHeight, 1, 100000);
+    controls=new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping=true; controls.dampingFactor=0.08;
+    controls.maxPolarAngle=Math.PI*0.495;   // לא לרדת מתחת לרצפה
+    window.addEventListener('resize', resize);
+  }
+
+  async function open(){
+    v3d.classList.add('open');
+    loadingEl.style.display='flex';
+    const ok=await ensureThree();
+    if(!ok){ loadingEl.style.display='none'; if(!loaded) v3d.classList.remove('open'); return; }
+    if(!renderer) initRenderer();
+    resize();
+    buildScene();
+    resetCamera();
+    loadingEl.style.display='none';
+    if(!rafId) animate();
+  }
+  function close(){
+    v3d.classList.remove('open');
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  }
+
+  document.getElementById('view3dBtn').onclick=open;
+  document.getElementById('v3dClose').onclick=close;
+  document.getElementById('v3dReset').onclick=()=>{ resetCamera(); render(); };
+  document.getElementById('v3dWalls').onclick=()=>{ showWalls=!showWalls; buildScene(); resetCamera(); render(); };
+  document.getElementById('v3dLabels').onclick=()=>{
+    showLabels=!showLabels;
+    (scene.userData.labels||[]).forEach(l=>l.visible=showLabels); render();
+  };
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && v3d.classList.contains('open')) close(); });
+})();
 </script>
 </body>
 </html>
