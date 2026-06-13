@@ -469,9 +469,10 @@ function shapeNode(it){
   };
   if(it.img){
     const g=el('g');
+    const bg=outline(); bg.setAttribute('fill', c+'33'); bg.setAttribute('stroke','none'); g.appendChild(bg);
     const cid='clip-'+it.id;
     const cp=el('clipPath',{id:cid}); cp.appendChild(outline()); g.appendChild(cp);
-    const im=el('image',{x:x0, y:y0, width:W, height:H, preserveAspectRatio:'xMidYMid slice', 'clip-path':`url(#${cid})`});
+    const im=el('image',{x:x0, y:y0, width:W, height:H, preserveAspectRatio:'xMidYMid meet', 'clip-path':`url(#${cid})`});
     im.setAttribute('href', it.img);
     g.appendChild(im);
     const bord=outline(); bord.setAttribute('class','body'); bord.setAttribute('fill','none');
@@ -1038,7 +1039,7 @@ document.getElementById('cImgFile').onchange=e=>{
       const w=Math.max(1,Math.round(im.naturalWidth*sc)), h=Math.max(1,Math.round(im.naturalHeight*sc));
       const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       cv.getContext('2d').drawImage(im,0,0,w,h);
-      formImg=cv.toDataURL('image/jpeg',0.85);
+      formImg=cv.toDataURL('image/png');   // PNG לשמירת רקע שקוף
       updateFormImg();
     };
     im.onerror=()=>alert('לא ניתן לקרוא את התמונה.');
@@ -1586,9 +1587,17 @@ updateScaleUI();
       const col=(typeof CATS!=='undefined' && CATS[it.cat]? CATS[it.cat].color : '#d4dce8');
       const colInt=hexToInt(col);
       const mat=new THREE.MeshStandardMaterial({color:colInt, roughness:0.65, metalness:0.05});
-      if(it.img){ const tex=new THREE.TextureLoader().load(it.img, ()=>render()); tex.anisotropy=4; mat.map=tex; mat.color.set(0xffffff); }
       let mesh, baseY=h/2;                  // baseY מרים את בסיס הצורה לרצפה
-      if(it.shape==='ellipse'){
+      if(it.img){
+        // ביל-בורד: שני מישורים מצטלבים עם תמונת המוצר (חיתוך רקע שקוף) — נראה כמו הרהיט, לא קופסה
+        const tex=new THREE.TextureLoader().load(it.img, ()=>render()); tex.anisotropy=4;
+        const bmat=new THREE.MeshBasicMaterial({map:tex, transparent:true, alphaTest:0.5, side:THREE.DoubleSide, toneMapped:false});
+        const g2=new THREE.Group();
+        const p1=new THREE.Mesh(new THREE.PlaneGeometry(b.bw,h), bmat); p1.position.y=h/2;
+        const p2=p1.clone(); p2.rotation.y=Math.PI/2;
+        g2.add(p1); g2.add(p2);
+        mesh=g2; baseY=0;
+      } else if(it.shape==='ellipse'){
         mesh=new THREE.Mesh(new THREE.CylinderGeometry(b.bw/2,b.bw/2,h,40), mat);
         mesh.scale.z=b.bh/b.bw;             // אליפסה
       } else if(it.shape==='L'){
