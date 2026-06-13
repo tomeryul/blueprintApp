@@ -78,8 +78,9 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 .furn.sel .body{stroke:#fff; stroke-width:3.5; stroke-dasharray:9 5;}
 .edit-text{font-family:'Heebo'; font-weight:700; fill:var(--bp-ink);}
 
-#calibBanner,#editBanner{position:absolute; top:12px; right:12px; left:12px; margin:auto; max-width:580px; border-radius:12px; padding:9px 16px; font-size:13px; z-index:20; display:none; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,.45); line-height:1.6;}
+#calibBanner,#editBanner,#rectifyBanner{position:absolute; top:12px; right:12px; left:12px; margin:auto; max-width:580px; border-radius:12px; padding:9px 16px; font-size:13px; z-index:20; display:none; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,.45); line-height:1.6;}
 #calibBanner{background:#0a2a27; border:1px solid var(--accent2); color:#bdf3ec;}
+#rectifyBanner{background:#241a07; border:1px solid var(--accent); color:#ffe2ad;}
 #editBanner{background:#0d2238; border:1px solid #5ba3e8; color:#cfe6ff;}
 
 #scaleBadge{position:absolute; bottom:14px; inset-inline-end:14px; border-radius:9px; padding:6px 12px; font-size:11.5px; z-index:10; cursor:pointer; border:1px solid;}
@@ -141,6 +142,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
   <button class="btn" id="rotImgBtn" title="סיבוב התרשים ב־90°">🔄</button>
   <button class="btn" id="newPlanBtn" title="החלפת תרשים">🖼️</button>
   <button class="btn" id="calibBtn">📏 כיול</button>
+  <button class="btn" id="rectifyBtn" title="מתיחת הסקיצה כך שהמידות נכונות בשני הצירים">📐 יישור</button>
   <button class="btn" id="view3dBtn">🧊 תלת־ממד</button>
   <button class="btn" id="importBtn">📂 טעינה</button>
   <button class="btn primary" id="exportBtn">💾 שמירה</button>
@@ -154,6 +156,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 
     <div id="calibBanner">📏 הקישו על <b>שתי נקודות</b> בקצוות של קו מידה מהתוכנית — למשל קיר ה־<b>414</b> בחדר ההורים — ואז הזינו את האורך בס"מ</div>
     <div id="editBanner">✏️ מצב עריכת תרשים — בחרו כלי למטה. <b>קו</b>: גוררים לציור קיר · <b>מחק</b>: גוררים מלבן להסתרה · <b>טקסט</b>: מקישים במקום הרצוי</div>
+    <div id="rectifyBanner"></div>
 
     <div id="itemBar">
       <button class="btn small" id="rotBtn">⟳ סיבוב</button>
@@ -278,6 +281,8 @@ let selId = null;
 let mode = 'normal';   // normal | calibrate | edit
 let tool = 'line';
 let calibPts = [];
+let rectifyPhase = null;   // null | 'h' | 'v'  — מצב יישור דו-צירי
+let rectifyH = null;       // {pxLen, cm} של המידה האופקית
 let view = {x:0, y:0, w:1000, h:800};
 
 const CATS = {
@@ -335,17 +340,19 @@ function renderEdits(){
 function renderCalib(){
   gCalib.innerHTML='';
   const sw = Math.max(1.5, view.w/350);
-  if(calib && mode!=='calibrate'){
+  if(calib && mode!=='calibrate' && mode!=='rectify'){
     gCalib.appendChild(el('line',{x1:calib.x1,y1:calib.y1,x2:calib.x2,y2:calib.y2,stroke:'rgba(79,209,197,.55)','stroke-width':sw,'stroke-dasharray':'8 6'}));
   }
-  if(mode==='calibrate'){
+  if(mode==='calibrate' || mode==='rectify'){
+    const c = mode==='rectify' ? '#f5b041' : '#4fd1c5';
+    const cFill = mode==='rectify' ? 'rgba(245,176,65,.25)' : 'rgba(79,209,197,.25)';
     for(const p of calibPts){
-      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:Math.max(4,view.w/110),fill:'rgba(79,209,197,.25)',stroke:'#4fd1c5','stroke-width':sw}));
-      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:1.5,fill:'#4fd1c5'}));
+      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:Math.max(4,view.w/110),fill:cFill,stroke:c,'stroke-width':sw}));
+      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:1.5,fill:c}));
     }
     if(calibPts.length===2){
       const [a,b]=calibPts;
-      gCalib.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#4fd1c5','stroke-width':sw}));
+      gCalib.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:c,'stroke-width':sw}));
     }
   }
 }
@@ -569,6 +576,7 @@ function setTool(t){
 }
 function startEdit(){
   if(mode==='calibrate') endCalibration();
+  if(mode==='rectify') endRectify();
   mode='edit'; select(null);
   svg.classList.add('editing');
   editBanner.style.display='block';
@@ -609,6 +617,7 @@ const scaleBadge=document.getElementById('scaleBadge');
 function startCalibration(){
   if(!img) return;
   if(mode==='edit') endEdit();
+  if(mode==='rectify') endRectify();
   mode='calibrate'; calibPts=[]; select(null);
   svg.classList.add('calibrating');
   calibBanner.style.display='block';
@@ -629,6 +638,60 @@ function updateScaleUI(){
   else if(scaleEstimated){ scaleBadge.className='est mono'; scaleBadge.textContent='כיול משוער · הקישו לדיוק'; }
   else { scaleBadge.className='ok mono'; scaleBadge.textContent='כויל ✓ · 1 מ\u05f3 = '+(pxPerCm*100).toFixed(0)+'px'; }
 }
+
+/* ================= יישור דו-צירי (מתיחת הסקיצה) ================= */
+const rectifyBanner=document.getElementById('rectifyBanner');
+function setRectifyBanner(){
+  if(rectifyPhase==='h')
+    rectifyBanner.innerHTML='📐 <b>שלב 1/2 — מידה אופקית.</b> הקישו על <b>שתי נקודות</b> בקצוות של קו <b>אופקי</b> בעל מידה ידועה (למשל אורך קיר עליון), ואז הזינו את האורך בס"מ';
+  else
+    rectifyBanner.innerHTML='📐 <b>שלב 2/2 — מידה אנכית.</b> עכשיו הקישו על <b>שתי נקודות</b> בקצוות של קו <b>אנכי</b> בעל מידה ידועה, ואז הזינו את האורך בס"מ';
+}
+function startRectify(){
+  if(!img) return;
+  if(mode==='edit') endEdit();
+  if(mode==='calibrate') endCalibration();
+  mode='rectify'; rectifyPhase='h'; rectifyH=null; calibPts=[]; select(null);
+  svg.classList.add('calibrating');
+  rectifyBanner.style.display='block';
+  document.getElementById('rectifyBtn').classList.add('active-mode');
+  setRectifyBanner(); renderCalib();
+}
+function endRectify(){
+  mode='normal'; rectifyPhase=null; rectifyH=null; calibPts=[];
+  svg.classList.remove('calibrating');
+  rectifyBanner.style.display='none';
+  document.getElementById('rectifyBtn').classList.remove('active-mode');
+  renderCalib(); updateScaleUI();
+}
+/* ppcX,ppcY = פיקסלים-לס"מ בכל ציר בתמונה המקורית. מותחים אנכית כך שהסקאלה אחידה */
+function applyRectify(ppcX, ppcY){
+  const f = ppcX/ppcY;                 // מקדם מתיחה אנכי
+  if(!isFinite(f) || f<=0){ endRectify(); return; }
+  const centers = items.map(it=>{ const b=boundsPx(it); return {x:it.x+b.rw/2, y:it.y+b.rh/2}; });
+  pxPerCm = ppcX; scaleEstimated=false;
+  items.forEach((it,i)=>{
+    const c=centers[i], nb=boundsPx(it);
+    it.x=Math.round(c.x - nb.rw/2);
+    it.y=Math.round(c.y*f - nb.rh/2);
+  });
+  for(const ed of edits){
+    if(ed.type==='line'){ ed.y1=Math.round(ed.y1*f); ed.y2=Math.round(ed.y2*f); }
+    else if(ed.type==='erase'){ ed.y=Math.round(ed.y*f); ed.h=Math.round(ed.h*f); }
+    else if(ed.type==='text'){ ed.y=Math.round(ed.y*f); }
+  }
+  calib=null;
+  const im=new Image();
+  im.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=img.w; c.height=Math.max(1,Math.round(img.h*f));
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    endRectify();
+    setImage(c.toDataURL('image/jpeg',0.9), ()=>renderFurniture());
+  };
+  im.src=img.dataUrl;
+}
+document.getElementById('rectifyBtn').onclick=()=> mode==='rectify'? endRectify() : startRectify();
 
 /* modal */
 const modal=document.getElementById('modal');
@@ -687,7 +750,7 @@ svg.addEventListener('pointerdown', e=>{
     drag={draw:tool, a:p};
     return;
   }
-  if(mode==='calibrate'){
+  if(mode==='calibrate' || mode==='rectify'){
     drag={pan:true, sx:e.clientX, sy:e.clientY, vx:view.x, vy:view.y, calibPt:p};
     return;
   }
@@ -795,6 +858,26 @@ svg.addEventListener('pointerup', async e=>{
         calib={x1:a.x,y1:a.y,x2:b.x,y2:b.y,cm};
         endCalibration(); renderFurniture();
       } else { calibPts=[]; renderCalib(); }
+    }
+  }
+  if(mode==='rectify' && wasClick && d && d.calibPt){
+    calibPts.push(d.calibPt);
+    renderCalib();
+    if(calibPts.length===2){
+      const [a,b]=calibPts;
+      if(rectifyPhase==='h'){
+        const pxLen=Math.abs(b.x-a.x);
+        if(pxLen<3){ calibPts=[]; renderCalib(); return; }
+        const cm=await askValue('יישור — מידה אופקית','מה האורך האמיתי של הקטע האופקי שסימנתם, בס"מ? (למשל 400)','400');
+        if(cm){ rectifyH={pxLen,cm}; rectifyPhase='v'; calibPts=[]; setRectifyBanner(); renderCalib(); }
+        else { calibPts=[]; renderCalib(); }
+      } else {
+        const pxLen=Math.abs(b.y-a.y);
+        if(pxLen<3){ calibPts=[]; renderCalib(); return; }
+        const cm=await askValue('יישור — מידה אנכית','מה האורך האמיתי של הקטע האנכי שסימנתם, בס"מ? (למשל 300)','300');
+        if(cm){ applyRectify(rectifyH.pxLen/rectifyH.cm, pxLen/cm); }
+        else { calibPts=[]; renderCalib(); }
+      }
     }
   }
 });
