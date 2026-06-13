@@ -126,6 +126,10 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 #v3dLoading{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; color:var(--ink2); font-size:14px;}
 .v3d-spin{width:38px; height:38px; border:3px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:v3dspin .8s linear infinite;}
 @keyframes v3dspin{to{transform:rotate(360deg);}}
+.build-opt{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink2); margin:0 0 14px; cursor:pointer;}
+.build-opt input{width:16px; height:16px; accent-color:var(--accent2);}
+.chip.struct{background:#12203a; border-color:#39507a;}
+.chip.struct:hover{border-color:var(--bp-ink);}
 </style>
 </head>
 <body>
@@ -182,7 +186,8 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 
   <aside>
     <div class="tabs">
-      <button class="active" data-tab="catalog">קטלוג ריהוט</button>
+      <button class="active" data-tab="catalog">🛋️ ריהוט</button>
+      <button data-tab="build">🧱 בנייה</button>
       <button data-tab="placed">בדירה (<span id="placedCount">0</span>)</button>
     </div>
 
@@ -222,6 +227,16 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
         <button class="btn" style="width:100%; margin-top:6px; display:none;" id="cancelEditBtn">ביטול עריכה</button>
       </div>
       <div id="catalogGroups"></div>
+    </div>
+
+    <div class="panel" id="panel-build">
+      <div class="empty-note" style="padding:10px 4px 14px; text-align:start; line-height:1.6;">
+        בנו את הדירה בעצמכם 🧱<br>
+        הקישו על רכיב כדי להוסיף אותו — אחר כך גוררים, מסובבים (לחיצה כפולה / R) ומשנים גודל דרך ✎ עריכה.
+        לתצוגה תלת־ממדית הקישו 🧊 תלת־ממד.
+      </div>
+      <label class="build-opt"><input type="checkbox" id="blankFloor"> רצפה חלקה ב־3D (התעלם מהתרשים)</label>
+      <div id="buildGroups"></div>
     </div>
 
     <div class="panel" id="panel-placed">
@@ -349,8 +364,38 @@ function boundsPx(it){
   const r = it.rot%180!==0;
   return {rw:(r?bh:bw)*k, rh:(r?bw:bh)*k, W:bw*k, H:bh*k};
 }
+/* ===== קומפוננטות מבניות (בנייה) ===== */
+const STRUCT_STYLE={
+  room:{c:'#aebbd2'}, wall:{c:'#aebbd2'}, door:{c:'#caa46a'}, window:{c:'#4fd1c5'},
+};
+function structNode(it){
+  const k=ppc(), {W,H}=boundsPx(it);
+  const x0=-W/2, y0=-H/2;
+  const col=(STRUCT_STYLE[it.kind]||STRUCT_STYLE.wall).c;
+  if(it.kind==='room'){
+    const t=Math.max(2,(it.wallT||12)*k);
+    const d=`M${x0},${y0} h${W} v${H} h${-W} Z `+
+            `M${x0+t},${y0+t} h${W-2*t} v${H-2*t} h${-(W-2*t)} Z`;
+    return el('path',{class:'body', d, fill:col, 'fill-rule':'evenodd', 'fill-opacity':0.5, stroke:col, 'stroke-width':1});
+  }
+  if(it.kind==='door'){
+    const g=el('g');
+    g.appendChild(el('rect',{class:'body', x:x0, y:y0, width:W, height:H, fill:col+'33', stroke:col, 'stroke-width':1}));
+    g.appendChild(el('path',{d:`M${x0},${y0+H} L${x0},${y0+H-W} A${W},${W} 0 0 1 ${x0+W},${y0+H}`, fill:'none', stroke:col, 'stroke-width':1.2, opacity:.85}));
+    return g;
+  }
+  if(it.kind==='window'){
+    const g=el('g');
+    g.appendChild(el('rect',{class:'body', x:x0, y:y0, width:W, height:H, fill:col+'33', stroke:col, 'stroke-width':1}));
+    g.appendChild(el('line',{x1:x0, y1:0, x2:x0+W, y2:0, stroke:col, 'stroke-width':1}));
+    return g;
+  }
+  return el('rect',{class:'body', x:x0, y:y0, width:W, height:H, fill:col+'cc', stroke:col, 'stroke-width':1});
+}
+
 /* הצורה עצמה, בקואורדינטות מקומיות סביב (0,0) */
 function shapeNode(it){
+  if(it.kind) return structNode(it);
   const k=ppc(), {W,H}=boundsPx(it);
   const x0=-W/2, y0=-H/2;
   const c=CATS[it.cat].color;
@@ -876,6 +921,49 @@ function renderCatalog(){
     d.appendChild(box); wrap.appendChild(d);
   }
 }
+
+/* ===== קטלוג קומפוננטות בנייה ===== */
+const BUILD_CATALOG=[
+  {label:'חדרים', color:'#9fb3d4', items:[
+    ['חדר 2×2', {kind:'room', w:200, d:200, wallT:12}],
+    ['חדר 3×2.5', {kind:'room', w:300, d:250, wallT:12}],
+    ['חדר 3.5×3', {kind:'room', w:350, d:300, wallT:12}],
+    ['חדר 4×3', {kind:'room', w:400, d:300, wallT:12}],
+    ['סלון 5×4', {kind:'room', w:500, d:400, wallT:12}],
+    ['ממ"ד 2.5×2.5', {kind:'room', w:250, d:250, wallT:25}],
+  ]},
+  {label:'קירות', color:'#9fb3d4', items:[
+    ['קיר 100', {kind:'wall', w:100, d:12}],
+    ['קיר 200', {kind:'wall', w:200, d:12}],
+    ['קיר 300', {kind:'wall', w:300, d:12}],
+    ['קיר 400', {kind:'wall', w:400, d:12}],
+    ['מחיצה 200', {kind:'wall', w:200, d:8}],
+  ]},
+  {label:'דלתות וחלונות', color:'#caa46a', items:[
+    ['דלת 80', {kind:'door', w:80, d:12}],
+    ['דלת 90', {kind:'door', w:90, d:12}],
+    ['דלת כניסה 110', {kind:'door', w:110, d:14}],
+    ['חלון 60', {kind:'window', w:60, d:12}],
+    ['חלון 120', {kind:'window', w:120, d:12}],
+    ['חלון 180', {kind:'window', w:180, d:12}],
+  ]},
+];
+function renderBuild(){
+  const wrap=document.getElementById('buildGroups'); if(!wrap) return; wrap.innerHTML='';
+  for(const grp of BUILD_CATALOG){
+    const d=document.createElement('div'); d.className='cat-group';
+    const h=document.createElement('h3'); h.textContent=grp.label; h.style.color=grp.color;
+    d.appendChild(h);
+    const box=document.createElement('div'); box.className='cat-items';
+    for(const [nm,spec] of grp.items){
+      const b=document.createElement('button'); b.className='chip struct';
+      b.innerHTML=`${nm}<small class="mono">${spec.w}×${spec.d} ס"מ</small>`;
+      b.onclick=()=>addItem({name:nm, cat:'other', shape:'rect', ...spec});
+      box.appendChild(b);
+    }
+    d.appendChild(box); wrap.appendChild(d);
+  }
+}
 function renderPlacedList(){
   const list=document.getElementById('placedList');
   document.getElementById('placedCount').textContent=items.length;
@@ -976,6 +1064,7 @@ document.querySelectorAll('.tabs button').forEach(b=>{
 });
 window.addEventListener('resize',fitView);
 renderCatalog();
+renderBuild();
 setImage(EMBEDDED_PLAN, ()=>renderFurniture());
 updateScaleUI();
 </script>
@@ -1074,6 +1163,39 @@ updateScaleUI();
     return sp;
   }
 
+  function addEdges(mesh){
+    try{
+      const eg=new THREE.EdgesGeometry(mesh.geometry,20);
+      const ls=new THREE.LineSegments(eg, new THREE.LineBasicMaterial({color:0x0e1118, transparent:true, opacity:0.3}));
+      mesh.add(ls);
+    }catch(e){}
+  }
+  /* בניית קומפוננטה מבנית בתלת־ממד (חדר/קיר/דלת/חלון) */
+  function structMesh3D(it){
+    const grp=new THREE.Group();
+    const w=it.w, d=it.d, t=it.wallT||12;
+    if(it.kind==='room'){
+      const mat=new THREE.MeshStandardMaterial({color:0xcdd6e4, roughness:0.95});
+      const mk=(bw,bd,x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(bw,WALL_H,bd),mat);
+        m.position.set(x,WALL_H/2,z); addEdges(m); grp.add(m); };
+      mk(w,t, 0,-d/2); mk(w,t, 0,d/2);     // קירות עליון/תחתון
+      mk(t,d, -w/2,0); mk(t,d, w/2,0);      // קירות צד
+    } else if(it.kind==='door'){
+      const mat=new THREE.MeshStandardMaterial({color:0xb98a4e, roughness:0.8});
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,205,Math.max(4,d*0.6)),mat);
+      m.position.y=205/2; addEdges(m); grp.add(m);
+    } else if(it.kind==='window'){
+      const mat=new THREE.MeshStandardMaterial({color:0x8fe6dc, roughness:0.15, metalness:0.1, transparent:true, opacity:0.45});
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,120,Math.max(3,d*0.5)),mat);
+      m.position.y=150; grp.add(m); addEdges(m);
+    } else { // קיר בודד
+      const mat=new THREE.MeshStandardMaterial({color:0xcdd6e4, roughness:0.95});
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,WALL_H,d),mat);
+      m.position.y=WALL_H/2; addEdges(m); grp.add(m);
+    }
+    return grp;
+  }
+
   function buildScene(){
     clearScene();
     const kk=k();
@@ -1093,9 +1215,11 @@ updateScaleUI();
       Wcm=(maxx-minx)/kk; Hcm=(maxy-miny)/kk; cx=(minx+maxx)/2/kk; cz=(miny+maxy)/2/kk;
     } else { Wcm=400; Hcm=400; cx=200; cz=200; }
 
-    // רצפה עם תמונת התרשים כטקסטורה
-    const floorMat=new THREE.MeshStandardMaterial({color:0x223049, roughness:1, metalness:0});
-    if(typeof img!=='undefined' && img && img.dataUrl){
+    // רצפה — עם תמונת התרשים כטקסטורה, או חלקה (מצב בנייה)
+    const blankEl=document.getElementById('blankFloor');
+    const blank=blankEl && blankEl.checked;
+    const floorMat=new THREE.MeshStandardMaterial({color: blank?0x2a3550:0x223049, roughness:1, metalness:0});
+    if(!blank && typeof img!=='undefined' && img && img.dataUrl){
       const tex=new THREE.TextureLoader().load(img.dataUrl, ()=>render());
       tex.anisotropy=4; floorMat.map=tex; floorMat.color.set(0xffffff);
     }
@@ -1117,9 +1241,22 @@ updateScaleUI();
       }
     }
 
-    // ריהוט
+    // ריהוט + קומפוננטות מבניות
     const labels=[];
     for(const it of items){
+      // קומפוננטות בנייה (חדר / קיר / דלת / חלון)
+      if(it.kind){
+        const grp=structMesh3D(it);
+        const bp0=boundsPx(it);
+        grp.position.set((it.x+bp0.rw/2)/kk, 0, (it.y+bp0.rh/2)/kk);
+        grp.rotation.y=-it.rot*Math.PI/180;
+        scene.add(grp);
+        const lc=(STRUCT_STYLE[it.kind]||STRUCT_STYLE.wall).c;
+        const lbl=makeLabel(it.name, lc);
+        lbl.position.set((it.x+bp0.rw/2)/kk, WALL_H+18, (it.y+bp0.rh/2)/kk); lbl.visible=showLabels;
+        labels.push(lbl); scene.add(lbl);
+        continue;
+      }
       const b=boundsCm(it);                 // bw,bh בס"מ לפני סיבוב
       const h=heightOf(it);
       const col=(typeof CATS!=='undefined' && CATS[it.cat]? CATS[it.cat].color : '#d4dce8');
@@ -1149,6 +1286,7 @@ updateScaleUI();
       const ctrX=(it.x+bp.rw/2)/kk, ctrZ=(it.y+bp.rh/2)/kk;
       const grp=new THREE.Group();
       mesh.position.y=baseY;
+      addEdges(mesh);
       grp.add(mesh);
       grp.position.set(ctrX,0,ctrZ);
       grp.rotation.y=-it.rot*Math.PI/180;
@@ -1165,8 +1303,9 @@ updateScaleUI();
 
   function resetCamera(){
     const c=scene.userData.center, span=scene.userData.span;
-    camera.position.set(c.x+span*0.05, span*0.95, c.z+span*0.95);
-    controls.target.copy(c); controls.update();
+    const dist=span*1.15, hgt=span*0.55;     // זווית נמוכה ודרמטית כדי שהנפח יבלוט
+    camera.position.set(c.x - dist*0.4, hgt, c.z + dist);
+    controls.target.set(c.x, WALL_H*0.4, c.z); controls.update();
   }
 
   function render(){ renderer && renderer.render(scene,camera); }
@@ -1208,6 +1347,9 @@ updateScaleUI();
     v3d.classList.remove('open');
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
   }
+
+  const blankFloorEl=document.getElementById('blankFloor');
+  if(blankFloorEl) blankFloorEl.onchange=()=>{ if(v3d.classList.contains('open')){ buildScene(); render(); } };
 
   document.getElementById('view3dBtn').onclick=open;
   document.getElementById('v3dClose').onclick=close;
