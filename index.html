@@ -242,6 +242,13 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
         לתצוגה תלת־ממדית הקישו 🧊 תלת־ממד.
       </div>
       <label class="build-opt"><input type="checkbox" id="blankFloor"> רצפה חלקה ב־3D (התעלם מהתרשים)</label>
+      <div style="display:flex; gap:6px; margin:0 0 6px;">
+        <button class="btn small primary" id="autoWallsBtn" style="flex:1;">🪄 זהה קירות מהתרשים</button>
+        <button class="btn small" id="clearAutoWallsBtn" title="ניקוי הקירות שזוהו אוטומטית">🧹 נקה</button>
+      </div>
+      <div class="empty-note" style="padding:2px 4px 14px; text-align:start; font-size:11.5px;">
+        הזיהוי האוטומטי משוער — בדקו ותקנו ידנית במצב ✏️ עריכת תרשים. כדאי לכייל (📏) קודם.
+      </div>
       <div id="buildGroups"></div>
     </div>
 
@@ -1103,6 +1110,79 @@ function renderBuild(){
     d.appendChild(box); wrap.appendChild(d);
   }
 }
+/* ===== זיהוי קירות אוטומטי מהתרשים ===== */
+function autoDetectWalls(){
+  if(!img){ alert('אין תרשים טעון.'); return; }
+  const btn=document.getElementById('autoWallsBtn'); const old=btn.textContent;
+  btn.textContent='מזהה…'; btn.disabled=true;
+  const im=new Image();
+  im.onload=()=>{
+    try{
+      const scale=Math.min(1, 1400/Math.max(img.w,img.h));
+      const W=Math.max(1,Math.round(img.w*scale)), H=Math.max(1,Math.round(img.h*scale));
+      const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+      cv.getContext('2d').drawImage(im,0,0,W,H);
+      const data=cv.getContext('2d').getImageData(0,0,W,H).data;
+      const mask=new Uint8Array(W*H);
+      for(let p=0,i=0;p<W*H;p++,i+=4){ mask[p]=((data[i]+data[i+1]+data[i+2])/3)>140?1:0; }
+      const k=ppc()*scale;
+      const minLen=Math.max(18, Math.round(50*k));   // קיר מינ' ~50 ס"מ
+      const minThick=Math.max(2, Math.round(1.5*k)); // לסנן קווי מידה דקים
+      const maxThick=Math.max(10, Math.round(45*k));
+      const mergeBand=Math.max(3, maxThick);
+      // עובי אנכי/אופקי בכל פיקסל
+      const up=new Int16Array(W*H), dn=new Int16Array(W*H);
+      for(let x=0;x<W;x++){ let r=0; for(let y=0;y<H;y++){const p=y*W+x; r=mask[p]?r+1:0; up[p]=r;} }
+      for(let x=0;x<W;x++){ let r=0; for(let y=H-1;y>=0;y--){const p=y*W+x; r=mask[p]?r+1:0; dn[p]=r;} }
+      const lf=new Int16Array(W*H), rt=new Int16Array(W*H);
+      for(let y=0;y<H;y++){ let r=0; for(let x=0;x<W;x++){const p=y*W+x; r=mask[p]?r+1:0; lf[p]=r;} }
+      for(let y=0;y<H;y++){ let r=0; for(let x=W-1;x>=0;x--){const p=y*W+x; r=mask[p]?r+1:0; rt[p]=r;} }
+      const horiz=new Uint8Array(W*H), vert=new Uint8Array(W*H);
+      for(let p=0;p<W*H;p++){ if(mask[p]){
+        const tv=up[p]+dn[p]-1, th=lf[p]+rt[p]-1;
+        if(tv>=minThick && tv<=maxThick) horiz[p]=1;
+        if(th>=minThick && th<=maxThick) vert[p]=1;
+      }}
+      const rawH=[], rawV=[];
+      for(let y=0;y<H;y++){ let x0=-1;
+        for(let x=0;x<=W;x++){ const on=x<W&&horiz[y*W+x];
+          if(on&&x0<0)x0=x; else if(!on&&x0>=0){ if(x-x0>=minLen) rawH.push({y,a:x0,b:x-1}); x0=-1; } } }
+      for(let x=0;x<W;x++){ let y0=-1;
+        for(let y=0;y<=H;y++){ const on=y<H&&vert[y*W+x];
+          if(on&&y0<0)y0=y; else if(!on&&y0>=0){ if(y-y0>=minLen) rawV.push({x,a:y0,b:y-1}); y0=-1; } } }
+      const merge=(arr,key)=>{
+        const o=key==='y'?'x':'y';
+        arr.sort((p,q)=> p[key]-q[key] || p.a-q.a);
+        const out=[];
+        for(const s of arr){ let m=null;
+          for(const e of out){ if(Math.abs(e[key]-s[key])<=mergeBand && s.a<=e.b+minLen*0.5 && s.b>=e.a-minLen*0.5){ m=e; break; } }
+          if(m){ m.a=Math.min(m.a,s.a); m.b=Math.max(m.b,s.b); m[key]=(m[key]*m.n+s[key])/(m.n+1); m.n++; }
+          else { const e={a:s.a,b:s.b,n:1}; e[key]=s[key]; out.push(e); } }
+        return out;
+      };
+      const H2=merge(rawH,'y'), V2=merge(rawV,'x');
+      edits=edits.filter(e=>!e.auto);
+      const inv=1/scale, ww=Math.max(3,Math.round(8*ppc()));
+      for(const s of H2) edits.push({type:'line',auto:true,x1:Math.round(s.a*inv),y1:Math.round(s.y*inv),x2:Math.round(s.b*inv),y2:Math.round(s.y*inv),w:ww});
+      for(const s of V2) edits.push({type:'line',auto:true,x1:Math.round(s.x*inv),y1:Math.round(s.a*inv),x2:Math.round(s.x*inv),y2:Math.round(s.b*inv),w:ww});
+      renderEdits();
+      const n=H2.length+V2.length;
+      alert(n? ('זוהו '+n+' קירות 🧱\nבדקו ותקנו במצב ✏️ עריכת תרשים, או נקו עם 🧹.') : 'לא זוהו קירות. נסו לכייל (📏) קודם, או שהקווים בתרשים דקים מדי.');
+    }catch(err){ alert('הזיהוי נכשל: '+err.message); }
+    finally{ btn.textContent=old; btn.disabled=false; }
+  };
+  im.onerror=()=>{ btn.textContent=old; btn.disabled=false; alert('שגיאה בטעינת התמונה.'); };
+  im.src=img.dataUrl;
+}
+function clearAutoWalls(){
+  const before=edits.length;
+  edits=edits.filter(e=>!e.auto);
+  renderEdits();
+  if(before===edits.length) alert('אין קירות אוטומטיים לניקוי.');
+}
+document.getElementById('autoWallsBtn').onclick=autoDetectWalls;
+document.getElementById('clearAutoWallsBtn').onclick=clearAutoWalls;
+
 function renderPlacedList(){
   const list=document.getElementById('placedList');
   document.getElementById('placedCount').textContent=items.length;
