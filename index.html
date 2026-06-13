@@ -374,8 +374,9 @@ function structNode(it){
   const col=(STRUCT_STYLE[it.kind]||STRUCT_STYLE.wall).c;
   if(it.kind==='room'){
     const t=Math.max(2,(it.wallT||12)*k);
-    const d=`M${x0},${y0} h${W} v${H} h${-W} Z `+
-            `M${x0+t},${y0+t} h${W-2*t} v${H-2*t} h${-(W-2*t)} Z`;
+    // המלבן W×H הוא הפנים הנקי; הקירות מתווספים החוצה בעובי t
+    const d=`M${x0-t},${y0-t} h${W+2*t} v${H+2*t} h${-(W+2*t)} Z `+
+            `M${x0},${y0} h${W} v${H} h${-W} Z`;
     return el('path',{class:'body', d, fill:col, 'fill-rule':'evenodd', 'fill-opacity':0.5, stroke:col, 'stroke-width':1});
   }
   if(it.kind==='door'){
@@ -1178,8 +1179,9 @@ updateScaleUI();
       const mat=new THREE.MeshStandardMaterial({color:0xcdd6e4, roughness:0.95});
       const mk=(bw,bd,x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(bw,WALL_H,bd),mat);
         m.position.set(x,WALL_H/2,z); addEdges(m); grp.add(m); };
-      mk(w,t, 0,-d/2); mk(w,t, 0,d/2);     // קירות עליון/תחתון
-      mk(t,d, -w/2,0); mk(t,d, w/2,0);      // קירות צד
+      // w×d = פנים נקי; הקירות מחוץ לו בעובי t
+      mk(w+2*t,t, 0,-(d/2+t/2)); mk(w+2*t,t, 0,(d/2+t/2));   // קירות עליון/תחתון (רוחב חיצוני מלא)
+      mk(t,d, -(w/2+t/2),0); mk(t,d, (w/2+t/2),0);            // קירות צד (בין העליון לתחתון)
     } else if(it.kind==='door'){
       const mat=new THREE.MeshStandardMaterial({color:0xb98a4e, roughness:0.8});
       const m=new THREE.Mesh(new THREE.BoxGeometry(w,205,Math.max(4,d*0.6)),mat);
