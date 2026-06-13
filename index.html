@@ -78,9 +78,10 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 .furn.sel .body{stroke:#fff; stroke-width:3.5; stroke-dasharray:9 5;}
 .edit-text{font-family:'Heebo'; font-weight:700; fill:var(--bp-ink);}
 
-#calibBanner,#editBanner,#rectifyBanner{position:absolute; top:12px; right:12px; left:12px; margin:auto; max-width:580px; border-radius:12px; padding:9px 16px; font-size:13px; z-index:20; display:none; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,.45); line-height:1.6;}
+#calibBanner,#editBanner,#rectifyBanner,#measureBanner{position:absolute; top:12px; right:12px; left:12px; margin:auto; max-width:580px; border-radius:12px; padding:9px 16px; font-size:13px; z-index:20; display:none; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,.45); line-height:1.6;}
 #calibBanner{background:#0a2a27; border:1px solid var(--accent2); color:#bdf3ec;}
 #rectifyBanner{background:#241a07; border:1px solid var(--accent); color:#ffe2ad;}
+#measureBanner{background:#0d2238; border:1px solid #5ba3e8; color:#cfe6ff;}
 #editBanner{background:#0d2238; border:1px solid #5ba3e8; color:#cfe6ff;}
 
 #scaleBadge{position:absolute; bottom:14px; inset-inline-end:14px; border-radius:9px; padding:6px 12px; font-size:11.5px; z-index:10; cursor:pointer; border:1px solid;}
@@ -143,6 +144,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
   <button class="btn" id="newPlanBtn" title="החלפת תרשים">🖼️</button>
   <button class="btn" id="calibBtn">📏 כיול</button>
   <button class="btn" id="rectifyBtn" title="מתיחת הסקיצה כך שהמידות נכונות בשני הצירים">📐 יישור</button>
+  <button class="btn" id="measureBtn" title="מדידת מרחק בין שתי נקודות לפי הכיול">↔ מדידה</button>
   <button class="btn" id="view3dBtn">🧊 תלת־ממד</button>
   <button class="btn" id="importBtn">📂 טעינה</button>
   <button class="btn primary" id="exportBtn">💾 שמירה</button>
@@ -157,6 +159,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
     <div id="calibBanner">📏 הקישו על <b>שתי נקודות</b> בקצוות של קו מידה מהתוכנית — למשל קיר ה־<b>414</b> בחדר ההורים — ואז הזינו את האורך בס"מ</div>
     <div id="editBanner">✏️ מצב עריכת תרשים — בחרו כלי למטה. <b>קו</b>: גוררים לציור קיר · <b>מחק</b>: גוררים מלבן להסתרה · <b>טקסט</b>: מקישים במקום הרצוי</div>
     <div id="rectifyBanner"></div>
+    <div id="measureBanner">↔ <b>מדידה</b> — הקישו על שתי נקודות בתרשים כדי לראות את המרחק האמיתי ביניהן. הקשה שלישית מתחילה מדידה חדשה.</div>
 
     <div id="itemBar">
       <button class="btn small" id="rotBtn">⟳ סיבוב</button>
@@ -283,6 +286,7 @@ let tool = 'line';
 let calibPts = [];
 let rectifyPhase = null;   // null | 'h' | 'v'  — מצב יישור דו-צירי
 let rectifyH = null;       // {pxLen, cm} של המידה האופקית
+let measurePts = [];       // נקודות לכלי המדידה
 let view = {x:0, y:0, w:1000, h:800};
 
 const CATS = {
@@ -353,6 +357,26 @@ function renderCalib(){
     if(calibPts.length===2){
       const [a,b]=calibPts;
       gCalib.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:c,'stroke-width':sw}));
+    }
+  }
+  if(mode==='measure'){
+    const c='#6cb2ff';
+    for(const p of measurePts){
+      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:Math.max(4,view.w/110),fill:'rgba(108,178,255,.25)',stroke:c,'stroke-width':sw}));
+      gCalib.appendChild(el('circle',{cx:p.x,cy:p.y,r:1.5,fill:c}));
+    }
+    if(measurePts.length===2){
+      const [a,b]=measurePts;
+      gCalib.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:c,'stroke-width':sw,'stroke-dasharray':(sw*3)+' '+(sw*2)}));
+      const cm=Math.hypot(b.x-a.x,b.y-a.y)/ppc();
+      const txt=(cm/100).toFixed(2)+' מ׳  ('+Math.round(cm)+' ס"מ)';
+      const fs=Math.max(11, view.w/42);
+      const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+      const bw=txt.length*fs*0.56, bh=fs*1.5;
+      gCalib.appendChild(el('rect',{x:mx-bw/2, y:my-bh-fs*0.4, width:bw, height:bh, rx:fs*0.4, fill:'rgba(13,17,24,.85)', stroke:c, 'stroke-width':sw*0.6}));
+      const t=el('text',{x:mx, y:my-bh/2-fs*0.4, 'text-anchor':'middle', 'dominant-baseline':'central', 'font-size':fs, fill:'#dbe7ff', 'font-weight':'700'});
+      t.textContent=txt;
+      gCalib.appendChild(t);
     }
   }
 }
@@ -577,6 +601,7 @@ function setTool(t){
 function startEdit(){
   if(mode==='calibrate') endCalibration();
   if(mode==='rectify') endRectify();
+  if(mode==='measure') endMeasure();
   mode='edit'; select(null);
   svg.classList.add('editing');
   editBanner.style.display='block';
@@ -618,6 +643,7 @@ function startCalibration(){
   if(!img) return;
   if(mode==='edit') endEdit();
   if(mode==='rectify') endRectify();
+  if(mode==='measure') endMeasure();
   mode='calibrate'; calibPts=[]; select(null);
   svg.classList.add('calibrating');
   calibBanner.style.display='block';
@@ -651,6 +677,7 @@ function startRectify(){
   if(!img) return;
   if(mode==='edit') endEdit();
   if(mode==='calibrate') endCalibration();
+  if(mode==='measure') endMeasure();
   mode='rectify'; rectifyPhase='h'; rectifyH=null; calibPts=[]; select(null);
   svg.classList.add('calibrating');
   rectifyBanner.style.display='block';
@@ -692,6 +719,29 @@ function applyRectify(ppcX, ppcY){
   im.src=img.dataUrl;
 }
 document.getElementById('rectifyBtn').onclick=()=> mode==='rectify'? endRectify() : startRectify();
+
+/* ================= כלי מדידה ================= */
+const measureBanner=document.getElementById('measureBanner');
+function startMeasure(){
+  if(!img) return;
+  if(mode==='edit') endEdit();
+  if(mode==='calibrate') endCalibration();
+  if(mode==='rectify') endRectify();
+  mode='measure'; measurePts=[]; select(null);
+  svg.classList.add('calibrating');
+  measureBanner.style.display='block';
+  document.getElementById('measureBtn').classList.add('active-mode');
+  renderCalib();
+  setTimeout(()=>{ measureBanner.style.display='none'; }, 6000);
+}
+function endMeasure(){
+  mode='normal'; measurePts=[];
+  svg.classList.remove('calibrating');
+  measureBanner.style.display='none';
+  document.getElementById('measureBtn').classList.remove('active-mode');
+  renderCalib();
+}
+document.getElementById('measureBtn').onclick=()=> mode==='measure'? endMeasure() : startMeasure();
 
 /* modal */
 const modal=document.getElementById('modal');
@@ -750,7 +800,7 @@ svg.addEventListener('pointerdown', e=>{
     drag={draw:tool, a:p};
     return;
   }
-  if(mode==='calibrate' || mode==='rectify'){
+  if(mode==='calibrate' || mode==='rectify' || mode==='measure'){
     drag={pan:true, sx:e.clientX, sy:e.clientY, vx:view.x, vy:view.y, calibPt:p};
     return;
   }
@@ -879,6 +929,11 @@ svg.addEventListener('pointerup', async e=>{
         else { calibPts=[]; renderCalib(); }
       }
     }
+  }
+  if(mode==='measure' && wasClick && d && d.calibPt){
+    if(measurePts.length>=2) measurePts=[];   // הקשה שלישית — מדידה חדשה
+    measurePts.push(d.calibPt);
+    renderCalib();
   }
 });
 svg.addEventListener('pointercancel', e=>{
