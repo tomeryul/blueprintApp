@@ -65,6 +65,8 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 .placed-item .dm{font-size:11px; color:var(--ink3);}
 .placed-item .del{background:none; border:none; color:var(--ink3); cursor:pointer; font-size:15px; padding:2px 5px; border-radius:6px;}
 .placed-item .del:hover{color:var(--danger); background:rgba(255,120,120,.1);}
+.placed-item .lnk{text-decoration:none; font-size:14px; padding:2px 5px; border-radius:6px; line-height:1;}
+.placed-item .lnk:hover{background:rgba(79,209,197,.15);}
 .empty-note{color:var(--ink3); font-size:12.5px; text-align:center; padding:24px 8px; line-height:1.7;}
 
 #planWrap{flex:1; position:relative; background:#0a2348; min-width:0; touch-action:none; overflow:hidden;}
@@ -165,6 +167,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
       <button class="btn small" id="rotBtn">⟳ סיבוב</button>
       <button class="btn small" id="editItemBtn">✎ עריכה</button>
       <button class="btn small" id="dupBtn">⧉ שכפול</button>
+      <button class="btn small" id="linkBtn" title="פתיחת קישור המוצר">🔗</button>
       <button class="btn small" id="delBtn" style="color:var(--danger);">✕ מחיקה</button>
     </div>
 
@@ -229,6 +232,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
             <option value="other" selected>אחר</option>
           </select>
         </div>
+        <div class="field"><label>קישור למוצר (אופציונלי) 🔗</label><input id="cLink" type="url" inputmode="url" placeholder="https://... איפה לקנות"></div>
         <button class="btn primary" style="width:100%;" id="addCustom">הוספה לתוכנית</button>
         <button class="btn" style="width:100%; margin-top:6px; display:none;" id="cancelEditBtn">ביטול עריכה</button>
       </div>
@@ -999,6 +1003,7 @@ function readFormSpec(){
     d: +document.getElementById('cD').value||50,
     cat: document.getElementById('cCat').value,
     shape: cShape.value,
+    link: normalizeUrl(document.getElementById('cLink').value.trim()),
   };
   if(spec.shape==='L'){
     spec.cw=Math.min(+document.getElementById('cCW').value||100, spec.w);
@@ -1024,6 +1029,7 @@ function startItemEdit(it){
   document.getElementById('cW').value=it.w;
   document.getElementById('cD').value=it.d;
   document.getElementById('cCat').value=it.cat;
+  document.getElementById('cLink').value=it.link||'';
   cShape.value=it.shape||'rect';
   if(it.shape==='L'){
     document.getElementById('cCW').value=it.cw;
@@ -1042,8 +1048,20 @@ function cancelItemEdit(){
   document.getElementById('addCustom').textContent='הוספה לתוכנית';
   document.getElementById('cancelEditBtn').style.display='none';
   document.getElementById('cName').value='';
+  document.getElementById('cLink').value='';
+}
+/* נרמול קישור: הוספת https:// אם חסר, החזרת '' אם ריק */
+function normalizeUrl(u){
+  if(!u) return '';
+  if(!/^https?:\/\//i.test(u)) u='https://'+u;
+  try{ new URL(u); return u; }catch(e){ return ''; }
 }
 document.getElementById('cancelEditBtn').onclick=cancelItemEdit;
+document.getElementById('linkBtn').onclick=()=>{
+  const s=getSel(); if(!s) return;
+  if(s.link) window.open(s.link,'_blank','noopener,noreferrer');
+  else { document.querySelector('.tabs button[data-tab="catalog"]').click(); startItemEdit(s); document.getElementById('cLink').focus(); }
+};
 document.getElementById('editItemBtn').onclick=()=>{ const s=getSel(); if(s) startItemEdit(s); };
 document.getElementById('rotBtn').onclick=()=>{const s=getSel(); if(s){rotateItem(s); renderFurniture();}};
 document.getElementById('dupBtn').onclick=()=>{const s=getSel(); if(s){const c={...s,id:nextId++,x:s.x+18,y:s.y+18}; items.push(c); select(c.id);}};
@@ -1198,6 +1216,12 @@ function renderPlacedList(){
     const {bw,bh}=boundsCm(it);
     const row=document.createElement('div'); row.className='placed-item'+(it.id===selId?' sel':'');
     row.innerHTML=`<span class="dot" style="background:${CATS[it.cat].color}"></span><span class="nm">${it.name}</span><span class="dm mono">${bw}×${bh}</span>`;
+    if(it.link){
+      const a=document.createElement('a'); a.className='lnk'; a.textContent='🔗';
+      a.href=it.link; a.target='_blank'; a.rel='noopener noreferrer'; a.title='פתיחת קישור המוצר';
+      a.onclick=e=>e.stopPropagation();
+      row.appendChild(a);
+    }
     const del=document.createElement('button'); del.className='del'; del.textContent='✕';
     del.onclick=e=>{e.stopPropagation(); removeItem(it.id);};
     row.appendChild(del);
