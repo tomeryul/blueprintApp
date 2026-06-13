@@ -1495,14 +1495,16 @@ updateScaleUI();
       } else if(it.shape==='L'){
         const w=it.w, d=it.d, cw=Math.min(it.cw,it.w), cd=it.cd;
         const sh=new THREE.Shape();
-        if(it.side==='l'){ sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,d); sh.lineTo(cw,d); sh.lineTo(cw,cd); sh.lineTo(0,cd); }
-        else { sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,cd); sh.lineTo(w-cw,cd); sh.lineTo(w-cw,d); sh.lineTo(0,d); }
+        // y מנוגד: אחרי rotateX(-90) צורת-y ממופה ל-Z. שלילה מבטיחה screen-y -> +Z כמו המיקום (אחרת השזלונג יוצא מראה הפוכה)
+        if(it.side==='l'){ sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-d); sh.lineTo(cw,-d); sh.lineTo(cw,-cd); sh.lineTo(0,-cd); }
+        else { sh.moveTo(0,0); sh.lineTo(w,0); sh.lineTo(w,-cd); sh.lineTo(w-cw,-cd); sh.lineTo(w-cw,-d); sh.lineTo(0,-d); }
         sh.closePath();
         const geo=new THREE.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false});
         geo.rotateX(-Math.PI/2);            // הוצאה כלפי מעלה (z->y)
         geo.computeBoundingBox();
         const bb=geo.boundingBox;
         geo.translate(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
+        mat.side=THREE.DoubleSide;           // בשל היפוך ה-y, מציגים שני צדדים כדי שהתאורה תקינה
         mesh=new THREE.Mesh(geo,mat); baseY=0;   // הבסיס כבר על y=0
       } else {
         mesh=new THREE.Mesh(new THREE.BoxGeometry(b.bw,h,b.bh), mat);
