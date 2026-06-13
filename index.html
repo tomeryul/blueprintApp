@@ -141,6 +141,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
 <header>
   <h1>מתכנן הדירה <span>·</span> דירה 59</h1>
   <div class="spacer"></div>
+  <button class="btn" id="editToggleBtn" title="הפעלת עריכה — רק כשדלוק אפשר להזיז ולערוך רהיטים">🔒 נעול</button>
   <button class="btn" id="editModeBtn">✏️ עריכת תרשים</button>
   <button class="btn" id="rotImgBtn" title="סיבוב התרשים ב־90°">🔄</button>
   <button class="btn" id="newPlanBtn" title="החלפת תרשים">🖼️</button>
@@ -214,6 +215,7 @@ aside{width:300px; min-width:300px; background:var(--panel); border-inline-start
         <div class="dims-row">
           <div class="field"><label id="lblW">רוחב (ס"מ)</label><input id="cW" type="number" min="5" max="800" value="100"></div>
           <div class="field"><label id="lblD">עומק (ס"מ)</label><input id="cD" type="number" min="5" max="800" value="50"></div>
+          <div class="field"><label>גובה (ס"מ)</label><input id="cHeight" type="number" min="1" max="400" placeholder="אוטו׳"></div>
         </div>
         <div id="lFields" style="display:none;">
           <div class="dims-row">
@@ -293,6 +295,7 @@ let edits = [];        // עריכות תרשים: {type:'line',x1,y1,x2,y2,w} |
 let nextId = 1;
 let selId = null;
 let mode = 'normal';   // normal | calibrate | edit
+let editMode = false;  // הזזת/עריכת רהיטים מותרת רק כשדלוק (אחרת גרירה רק גוללת)
 let tool = 'line';
 let calibPts = [];
 let rectifyPhase = null;   // null | 'h' | 'v'  — מצב יישור דו-צירי
@@ -816,7 +819,7 @@ svg.addEventListener('pointerdown', e=>{
     return;
   }
   const furn=e.target.closest('.furn');
-  if(furn){
+  if(furn && editMode){
     const id=+furn.dataset.id, it=items.find(i=>i.id===id);
     select(id);
     const now=Date.now();
@@ -824,7 +827,7 @@ svg.addEventListener('pointerdown', e=>{
     lastTap=now;
     drag={id, dx:p.x-it.x, dy:p.y-it.y};
   } else {
-    select(null);
+    if(editMode) select(null);
     drag={pan:true, sx:e.clientX, sy:e.clientY, vx:view.x, vy:view.y};
     svg.classList.add('panning');
   }
@@ -959,6 +962,7 @@ window.addEventListener('keydown', e=>{
     if(e.key==='z'&&(e.ctrlKey||e.metaKey)){ edits.pop(); renderEdits(); e.preventDefault(); }
     return;
   }
+  if(!editMode) return;
   const s=getSel(); if(!s) return;
   const step=(e.shiftKey?10:2)*ppc();
   if(e.key==='ArrowLeft'){s.x-=step; renderFurniture(); e.preventDefault();}
@@ -1004,6 +1008,7 @@ function readFormSpec(){
     cat: document.getElementById('cCat').value,
     shape: cShape.value,
     link: normalizeUrl(document.getElementById('cLink').value.trim()),
+    h: +document.getElementById('cHeight').value||0,   // 0 = גובה אוטומטי
   };
   if(spec.shape==='L'){
     spec.cw=Math.min(+document.getElementById('cCW').value||100, spec.w);
@@ -1030,6 +1035,7 @@ function startItemEdit(it){
   document.getElementById('cD').value=it.d;
   document.getElementById('cCat').value=it.cat;
   document.getElementById('cLink').value=it.link||'';
+  document.getElementById('cHeight').value=it.h>0?it.h:'';
   cShape.value=it.shape||'rect';
   if(it.shape==='L'){
     document.getElementById('cCW').value=it.cw;
@@ -1049,6 +1055,7 @@ function cancelItemEdit(){
   document.getElementById('cancelEditBtn').style.display='none';
   document.getElementById('cName').value='';
   document.getElementById('cLink').value='';
+  document.getElementById('cHeight').value='';
 }
 /* נרמול קישור: הוספת https:// אם חסר, החזרת '' אם ריק */
 function normalizeUrl(u){
@@ -1066,6 +1073,16 @@ document.getElementById('editItemBtn').onclick=()=>{ const s=getSel(); if(s) sta
 document.getElementById('rotBtn').onclick=()=>{const s=getSel(); if(s){rotateItem(s); renderFurniture();}};
 document.getElementById('dupBtn').onclick=()=>{const s=getSel(); if(s){const c={...s,id:nextId++,x:s.x+18,y:s.y+18}; items.push(c); select(c.id);}};
 document.getElementById('delBtn').onclick=()=>{ if(selId!=null) removeItem(selId); };
+function setEditMode(on){
+  editMode=on;
+  const b=document.getElementById('editToggleBtn');
+  b.textContent = on ? '✏️ עריכה פעילה' : '🔒 נעול';
+  b.classList.toggle('active-mode', on);
+  svg.classList.toggle('edit-on', on);
+  if(!on) selId=null;
+  renderFurniture();
+}
+document.getElementById('editToggleBtn').onclick=()=> setEditMode(!editMode);
 
 /* ================= Sidebar ================= */
 function renderCatalog(){
@@ -1262,7 +1279,7 @@ function centerOn(it){
 function positionItemBar(){
   const bar=document.getElementById('itemBar');
   const s=getSel();
-  if(!s){bar.style.display='none'; return;}
+  if(!s || !editMode){bar.style.display='none'; return;}
   const b=boundsPx(s);
   const pt=svg.createSVGPoint(); pt.x=s.x+b.rw/2; pt.y=s.y;
   const sp=pt.matrixTransform(svg.getScreenCTM());
@@ -1343,8 +1360,9 @@ updateScaleUI();
   const v3d=document.getElementById('v3d');
   const loadingEl=document.getElementById('v3dLoading');
 
-  /* גובה משוער לכל פריט (ס"מ) לפי שם/קטגוריה */
+  /* גובה הפריט (ס"מ): מפורש אם הוגדר, אחרת הערכה לפי שם/קטגוריה */
   function heightOf(it){
+    if(it.h>0) return it.h;
     const n=it.name||'';
     const has=(...w)=>w.some(s=>n.includes(s));
     if(has('שטיח')) return 2;
@@ -1423,10 +1441,11 @@ updateScaleUI();
   function structMesh3D(it){
     const grp=new THREE.Group();
     const w=it.w, d=it.d, t=it.wallT||12;
+    const wh=it.h>0?it.h:WALL_H;            // גובה קיר/חדר (ניתן להגדרה)
     if(it.kind==='room'){
       const mat=new THREE.MeshStandardMaterial({color:0xcdd6e4, roughness:0.95});
-      const mk=(bw,bd,x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(bw,WALL_H,bd),mat);
-        m.position.set(x,WALL_H/2,z); addEdges(m); grp.add(m); };
+      const mk=(bw,bd,x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(bw,wh,bd),mat);
+        m.position.set(x,wh/2,z); addEdges(m); grp.add(m); };
       // w×d = פנים נקי; הקירות מחוץ לו בעובי t
       mk(w+2*t,t, 0,-(d/2+t/2)); mk(w+2*t,t, 0,(d/2+t/2));   // קירות עליון/תחתון (רוחב חיצוני מלא)
       mk(t,d, -(w/2+t/2),0); mk(t,d, (w/2+t/2),0);            // קירות צד (בין העליון לתחתון)
@@ -1440,8 +1459,8 @@ updateScaleUI();
       m.position.y=150; grp.add(m); addEdges(m);
     } else { // קיר בודד
       const mat=new THREE.MeshStandardMaterial({color:0xcdd6e4, roughness:0.95});
-      const m=new THREE.Mesh(new THREE.BoxGeometry(w,WALL_H,d),mat);
-      m.position.y=WALL_H/2; addEdges(m); grp.add(m);
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,wh,d),mat);
+      m.position.y=wh/2; addEdges(m); grp.add(m);
     }
     return grp;
   }
