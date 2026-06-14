@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>מתכנן הדירה — יונתן רטוש 1, דירה 59</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#091825">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="מתכנן הדירה">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -19,6 +24,7 @@ body{font-family:'Heebo',sans-serif; background:var(--bg); color:var(--ink); dis
 .mono{font-family:'JetBrains Mono',monospace;}
 
 header{display:flex; align-items:center; gap:7px; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+header .logo{width:28px; height:28px; border-radius:8px; flex:none; box-shadow:0 0 12px rgba(86,214,247,.25);}
 header h1{font-size:14.5px; font-weight:900; margin:0;}
 header h1 span{color:var(--accent);}
 .spacer{flex:1;}
@@ -181,6 +187,7 @@ input[type=number]{-moz-appearance:textfield;}
 <body>
 
 <header>
+  <img class="logo" src="icon.png" alt="מתכנן הדירה" width="28" height="28">
   <h1>מתכנן הדירה <span>·</span> דירה 59</h1>
   <div class="spacer"></div>
   <button class="btn" id="editToggleBtn" title="הפעלת עריכה — רק כשדלוק אפשר להזיז ולערוך רהיטים"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>נעול</span></button>
