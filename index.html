@@ -101,9 +101,9 @@ input[type=number]{-moz-appearance:textfield;}
 .img2obj{display:flex; gap:6px;}
 .img2obj .btn{flex:1; justify-content:center;}
 #bgTol,#ceBrush{accent-color:var(--accent);}
-.slot-thumbs{display:flex; gap:8px;}
-.slot{position:relative; border:1px solid var(--line); border-radius:10px; padding:5px; background:rgba(255,255,255,.03);}
-.slot canvas{display:block; width:84px; height:60px; border-radius:6px; background:
+.slot-thumbs{display:flex; gap:6px; flex-wrap:wrap;}
+.slot{position:relative; border:1px solid var(--line); border-radius:10px; padding:4px; background:rgba(255,255,255,.03);}
+.slot canvas{display:block; width:72px; height:54px; border-radius:6px; background:
   conic-gradient(#0d2236 25%,#0a1b2c 0 50%,#0d2236 0 75%,#0a1b2c 0) 0 0/14px 14px;}
 .slot-cap{font-size:10px; color:var(--ink3); text-align:center; margin-top:3px;}
 .slot-acts{position:absolute; top:3px; inset-inline-start:3px; display:flex; gap:3px;}
@@ -284,20 +284,23 @@ input[type=number]{-moz-appearance:textfield;}
           <label>תמונות מוצר → אובייקט תלת־ממד</label>
           <div class="img2obj">
             <button type="button" class="btn small" id="pickProductImg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-7 7"/></svg><span>חזית</span></button>
-            <button type="button" class="btn small" id="pickProductImg2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-7 7"/></svg><span>גב / צד</span></button>
+            <button type="button" class="btn small" id="pickProductImg2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-7 7"/></svg><span>צד</span></button>
+            <button type="button" class="btn small" id="pickProductImg3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-7 7"/></svg><span>עליון</span></button>
             <input type="file" id="productImgFile" accept="image/*" hidden>
             <input type="file" id="productImgFile2" accept="image/*" hidden>
+            <input type="file" id="productImgFile3" accept="image/*" hidden>
           </div>
           <div id="img2objCtl" style="display:none; margin-top:8px;">
             <div class="slot-thumbs">
               <div class="slot" id="slotBoxF" style="display:none;"><canvas id="thumbF" width="84" height="60"></canvas><div class="slot-cap">חזית</div><div class="slot-acts"><button type="button" class="mini" data-edit="F" title="עריכת חיתוך">✏️</button><button type="button" class="mini" data-del="F" title="הסרה">✕</button></div></div>
-              <div class="slot" id="slotBoxB" style="display:none;"><canvas id="thumbB" width="84" height="60"></canvas><div class="slot-cap">גב / צד</div><div class="slot-acts"><button type="button" class="mini" data-edit="B" title="עריכת חיתוך">✏️</button><button type="button" class="mini" data-del="B" title="הסרה">✕</button></div></div>
+              <div class="slot" id="slotBoxS" style="display:none;"><canvas id="thumbS" width="84" height="60"></canvas><div class="slot-cap">צד</div><div class="slot-acts"><button type="button" class="mini" data-edit="S" title="עריכת חיתוך">✏️</button><button type="button" class="mini" data-del="S" title="הסרה">✕</button></div></div>
+              <div class="slot" id="slotBoxT" style="display:none;"><canvas id="thumbT" width="84" height="60"></canvas><div class="slot-cap">עליון</div><div class="slot-acts"><button type="button" class="mini" data-edit="T" title="עריכת חיתוך">✏️</button><button type="button" class="mini" data-del="T" title="הסרה">✕</button></div></div>
             </div>
             <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink2); margin:8px 0 0;">
               <span style="white-space:nowrap;">סף הסרת רקע</span>
               <input type="range" id="bgTol" min="6" max="120" value="38" style="flex:1;">
             </label>
-            <div class="empty-note" style="padding:6px 2px 0; text-align:start; font-size:10.5px;">טיפ: העלו <b>חזית</b> + <b>גב/צד</b> לאובייקט מדויק יותר (הגב לא יהיה רק שיקוף). כוונו את סף הרקע, או ✏️ לעריכה ידנית של החיתוך (מחיקה/שחזור במברשת). בתלת־ממד נבנה סילואט מורם ממורקם (PBR) עם ייצוא GLB/OBJ.</div>
+            <div class="empty-note" style="padding:6px 2px 0; text-align:start; font-size:10.5px;">טיפ: <b>חזית</b> בלבד = סילואט מורם. הוסיפו <b>צד</b> ו/או <b>עליון</b> ← נבנה <b>נפח אמיתי</b> בחיתוך מרחבי (visual hull). ✏️ לעריכה ידנית של כל חיתוך. ייצוא GLB/OBJ ממסך ה־3D.</div>
           </div>
         </div>
 
@@ -1176,8 +1179,10 @@ reflectCat(); cShape.onchange();
    תמונת מוצר → אובייקט תלת־ממד (הכל בדפדפן, ללא שרת)
    הסרת רקע · חיתוך אוטומטי · מתאר סילואט · צבע מסגרת
    ============================================================ */
-let formCutout=null, formCutMeta=null, formCutoutBack=null;
-let slotF=null, slotB=null;   // {src,work,masked,cutout,meta}
+let formCutout=null, formCutMeta=null, formCutoutSide=null, formCutoutTop=null;
+let slotF=null, slotS=null, slotT=null;   // {src,work,masked,cutout,meta}  (חזית/צד/עליון)
+function getSlot(w){ return w==='F'?slotF : w==='S'?slotS : slotT; }
+function setSlot(w,v){ if(w==='F')slotF=v; else if(w==='S')slotS=v; else slotT=v; }
 function _imgToCanvas(imgEl, maxDim){
   let w=imgEl.naturalWidth||imgEl.width, h=imgEl.naturalHeight||imgEl.height;
   const s=Math.min(1, maxDim/Math.max(w,h)); w=Math.max(1,Math.round(w*s)); h=Math.max(1,Math.round(h*s));
@@ -1295,45 +1300,48 @@ function showCutout(dataUrl){
   else { im.removeAttribute('src'); im.style.display='none'; shp.style.display=''; }
 }
 function syncSlots(){
-  formCutout   = slotF ? slotF.cutout : null;
-  formCutMeta  = slotF ? slotF.meta   : null;
-  formCutoutBack = slotB ? slotB.cutout : null;
-  showCutout(formCutout || (slotB?slotB.cutout:null));
-  document.getElementById('img2objCtl').style.display = (slotF||slotB) ? 'block' : 'none';
+  formCutout    = slotF ? slotF.cutout : null;
+  formCutMeta   = slotF ? slotF.meta   : null;
+  formCutoutSide= slotS ? slotS.cutout : null;
+  formCutoutTop = slotT ? slotT.cutout : null;
+  showCutout(formCutout || (slotS?slotS.cutout:(slotT?slotT.cutout:null)));
+  document.getElementById('img2objCtl').style.display = (slotF||slotS||slotT) ? 'block' : 'none';
   document.getElementById('slotBoxF').style.display = slotF ? '' : 'none';
-  document.getElementById('slotBoxB').style.display = slotB ? '' : 'none';
-  _drawThumb('thumbF', slotF); _drawThumb('thumbB', slotB);
+  document.getElementById('slotBoxS').style.display = slotS ? '' : 'none';
+  document.getElementById('slotBoxT').style.display = slotT ? '' : 'none';
+  _drawThumb('thumbF', slotF); _drawThumb('thumbS', slotS); _drawThumb('thumbT', slotT);
 }
 function pickInto(which, file){
   if(!file) return;
   const rd=new FileReader();
   rd.onload=()=>{ const im=new Image();
-    im.onload=()=>{ try{ const s=buildSlotFromImage(im, +document.getElementById('bgTol').value||38);
-        if(which==='F') slotF=s; else slotB=s; syncSlots(); }catch(e){ alert('עיבוד התמונה נכשל: '+e.message); } };
+    im.onload=()=>{ try{ setSlot(which, buildSlotFromImage(im, +document.getElementById('bgTol').value||38)); syncSlots(); }
+      catch(e){ alert('עיבוד התמונה נכשל: '+e.message); } };
     im.onerror=()=>alert('טעינת התמונה נכשלה'); im.src=rd.result; };
   rd.readAsDataURL(file);
 }
 document.getElementById('pickProductImg').onclick =()=>document.getElementById('productImgFile').click();
 document.getElementById('pickProductImg2').onclick=()=>document.getElementById('productImgFile2').click();
+document.getElementById('pickProductImg3').onclick=()=>document.getElementById('productImgFile3').click();
 document.getElementById('productImgFile').onchange =function(){ pickInto('F', this.files&&this.files[0]); this.value=''; };
-document.getElementById('productImgFile2').onchange=function(){ pickInto('B', this.files&&this.files[0]); this.value=''; };
+document.getElementById('productImgFile2').onchange=function(){ pickInto('S', this.files&&this.files[0]); this.value=''; };
+document.getElementById('productImgFile3').onchange=function(){ pickInto('T', this.files&&this.files[0]); this.value=''; };
 document.getElementById('bgTol').addEventListener('change', ()=>{
   const tol=+document.getElementById('bgTol').value||38;
-  if(slotF&&slotF.src) slotF=Object.assign(buildSlotFromImage(slotF.src,tol),{});
-  if(slotB&&slotB.src) slotB=Object.assign(buildSlotFromImage(slotB.src,tol),{});
+  ['F','S','T'].forEach(w=>{ const s=getSlot(w); if(s&&s.src) setSlot(w, buildSlotFromImage(s.src,tol)); });
   syncSlots();
 });
 document.querySelector('.slot-thumbs').addEventListener('click', e=>{
   const ed=e.target.closest('[data-edit]'), dl=e.target.closest('[data-del]');
   if(ed){ openCutEditor(ed.getAttribute('data-edit')); }
-  else if(dl){ const w=dl.getAttribute('data-del'); if(w==='F') slotF=null; else slotB=null; syncSlots(); }
+  else if(dl){ setSlot(dl.getAttribute('data-del'), null); syncSlots(); }
 });
 
 /* ===== עורך חיתוך ידני (מברשת מחיקה/שחזור) ===== */
 let _ceWhich=null, _ceSlot=null, _ceMode='erase', _ceDown=false, _cePrev=null;
 const ceCanvas=document.getElementById('ceCanvas'), ceCtx=ceCanvas.getContext('2d');
 function openCutEditor(which){
-  const s = which==='F'?slotF:slotB; if(!s) return;
+  const s = getSlot(which); if(!s) return;
   _ceWhich=which; _ceSlot=s; _ceMode='erase';
   document.getElementById('ceErase').classList.add('tool-on');
   document.getElementById('ceRestore').classList.remove('tool-on');
@@ -1379,7 +1387,7 @@ document.getElementById('ceDone').onclick=()=>{
   const masked=document.createElement('canvas'); masked.width=ceCanvas.width; masked.height=ceCanvas.height;
   masked.getContext('2d').drawImage(ceCanvas,0,0);
   const fin=finalizeSlot(_ceSlot.work, masked); fin.src=_ceSlot.src;
-  if(_ceWhich==='F') slotF=fin; else slotB=fin;
+  setSlot(_ceWhich, fin);
   closeCutEditor(); syncSlots();
 };
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('cutEditor').classList.contains('open')) closeCutEditor(); });
@@ -1398,7 +1406,9 @@ function readFormSpec(){
     spec.cd=Math.max(+document.getElementById('cCD').value||spec.d+70, spec.d+5);
     spec.side=document.getElementById('cSide').value;
   }
-  if(formCutout){ spec.cutout=formCutout; spec.cutMeta=formCutMeta; if(formCutoutBack) spec.cutoutBack=formCutoutBack; }
+  if(formCutout){ spec.cutout=formCutout; spec.cutMeta=formCutMeta;
+    if(formCutoutSide) spec.cutoutSide=formCutoutSide;
+    if(formCutoutTop)  spec.cutoutTop =formCutoutTop; }
   return spec;
 }
 document.getElementById('addCustom').onclick=()=>{
@@ -1407,12 +1417,13 @@ document.getElementById('addCustom').onclick=()=>{
     const it=items.find(i=>i.id===editingId);
     if(it){ Object.assign(it, spec); if(spec.shape!=='L'){ delete it.cw; delete it.cd; delete it.side; }
       if(formCutout){ it.cutout=formCutout; it.cutMeta=formCutMeta; } else { delete it.cutout; delete it.cutMeta; }
-      if(formCutoutBack) it.cutoutBack=formCutoutBack; else delete it.cutoutBack; }
+      if(formCutoutSide) it.cutoutSide=formCutoutSide; else delete it.cutoutSide;
+      if(formCutoutTop)  it.cutoutTop =formCutoutTop;  else delete it.cutoutTop; }
     cancelItemEdit(); renderFurniture();
   } else {
     addItem(spec);
     document.getElementById('cName').value='';
-    slotF=null; slotB=null; syncSlots();
+    slotF=null; slotS=null; slotT=null; syncSlots();
   }
 };
 function startItemEdit(it){
@@ -1431,12 +1442,14 @@ function startItemEdit(it){
   }
   cShape.onchange();
   reflectCat();
-  slotF=null; slotB=null;
-  formCutout=it.cutout||null; formCutMeta=it.cutMeta||null; formCutoutBack=it.cutoutBack||null;
+  slotF=null; slotS=null; slotT=null;
+  formCutout=it.cutout||null; formCutMeta=it.cutMeta||null;
+  formCutoutSide=it.cutoutSide||null; formCutoutTop=it.cutoutTop||null;
   showCutout(it.cutout||null);
-  document.getElementById('img2objCtl').style.display=(it.cutout||it.cutoutBack)?'block':'none';
+  document.getElementById('img2objCtl').style.display=(it.cutout||it.cutoutSide||it.cutoutTop)?'block':'none';
   if(it.cutout) slotFromCutout(it.cutout, it.cutMeta, s=>{ slotF=s; syncSlots(); });
-  if(it.cutoutBack) slotFromCutout(it.cutoutBack, null, s=>{ slotB=s; syncSlots(); });
+  if(it.cutoutSide) slotFromCutout(it.cutoutSide, null, s=>{ slotS=s; syncSlots(); });
+  if(it.cutoutTop)  slotFromCutout(it.cutoutTop,  null, s=>{ slotT=s; syncSlots(); });
   document.getElementById('formTitle').textContent='✎ עריכת "'+it.name+'"';
   document.getElementById('addCustom').textContent='עדכון הפריט';
   document.getElementById('cancelEditBtn').style.display='block';
@@ -1450,7 +1463,7 @@ function cancelItemEdit(){
   document.getElementById('cName').value='';
   document.getElementById('cLink').value='';
   document.getElementById('cHeight').value='';
-  slotF=null; slotB=null; syncSlots();
+  slotF=null; slotS=null; slotT=null; syncSlots();
 }
 /* נרמול קישור: הוספת https:// אם חסר, החזרת '' אם ריק */
 function normalizeUrl(u){
@@ -1909,16 +1922,60 @@ updateScaleUI();
     g.add(body);
     const loader=new THREE.TextureLoader();
     const texF=loader.load(it.cutout, ()=>render()); texF.anisotropy=4;
-    let texB=texF;
-    if(it.cutoutBack){ texB=loader.load(it.cutoutBack, ()=>render()); texB.anisotropy=4; }
     const face=(z,tex,flip)=>{ const m=new THREE.MeshStandardMaterial({map:tex, transparent:true, alphaTest:0.5, roughness:0.6, metalness:0.0, side:THREE.DoubleSide});
       const pl=new THREE.Mesh(new THREE.PlaneGeometry(bw,h), m); pl.position.z=z; if(flip) pl.rotation.y=Math.PI; g.add(pl); };
-    face(depth/2+0.25, texF, false); face(-(depth/2+0.25), texB, true);
+    face(depth/2+0.25, texF, false); face(-(depth/2+0.25), texF, true);
     g.position.y=h/2;                            // בסיס ב-y=0
     addEdges(body);
   }
+  /* נפח אמיתי בחיתוך מרחבי (visual hull / space carving) מצלליות חזית/צד/עליון.
+      voxel מלא רק אם ההיטל שלו נמצא בתוך כל הצלליות הזמינות. בנייה א-סינכרונית
+     (טעינת התמונות) → BufferGeometry של פאות חשופות עם צבע לכל קודקוד מהחזית. */
+  function buildHull(g,it,bw,bh,h){
+    const N=40;
+    const load=src=>new Promise(res=>{ if(!src) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+    Promise.all([load(it.cutout),load(it.cutoutSide),load(it.cutoutTop)]).then(([fi,si,ti])=>{
+     try{
+      const sample=img=>{ if(!img) return null; const c=document.createElement('canvas'); c.width=N; c.height=N; const x=c.getContext('2d');
+        x.clearRect(0,0,N,N); const r=Math.min(N/img.width,N/img.height), w=img.width*r, hh=img.height*r;
+        x.drawImage(img,(N-w)/2,(N-hh)/2,w,hh); return x.getImageData(0,0,N,N).data; };
+      const F=sample(fi), S=sample(si), T=sample(ti); if(!F) return;
+      const aF=(x,y)=> F[(y*N+x)*4+3]>60;                 // חזית: u=x, v=y
+      const aS=(z,y)=> !S || S[(y*N+z)*4+3]>60;           // צד:  u=z(עומק), v=y
+      const aT=(x,z)=> !T || T[(z*N+x)*4+3]>60;           // עליון: u=x, v=z
+      const filled=(x,y,z)=>{ if(x<0||y<0||z<0||x>=N||y>=N||z>=N) return false;
+        const ry=N-1-y; return aF(x,ry)&&aS(z,ry)&&aT(x,z); };   // שורת תמונה 0 = גובה מרבי
+      const sx=bw/N, sy=h/N, sz=bh/N, X0=-bw/2, Z0=-bh/2;
+      const pos=[],nor=[],col=[];
+      const quad=(a,b,c,d,nx,ny,nz,rgb)=>{ const v=[a,b,c,a,c,d];
+        for(const p of v){ pos.push(p[0],p[1],p[2]); nor.push(nx,ny,nz); col.push(rgb[0],rgb[1],rgb[2]); } };
+      for(let y=0;y<N;y++) for(let z=0;z<N;z++) for(let x=0;x<N;x++){
+        if(!filled(x,y,z)) continue;
+        const ry=N-1-y, i=(ry*N+x)*4, rgb=[F[i]/255,F[i+1]/255,F[i+2]/255];
+        const x0=X0+x*sx,x1=x0+sx, y0=y*sy,y1=y0+sy, z0=Z0+z*sz,z1=z0+sz;
+        if(!filled(x+1,y,z)) quad([x1,y0,z0],[x1,y0,z1],[x1,y1,z1],[x1,y1,z0], 1,0,0,rgb);
+        if(!filled(x-1,y,z)) quad([x0,y0,z1],[x0,y0,z0],[x0,y1,z0],[x0,y1,z1],-1,0,0,rgb);
+        if(!filled(x,y+1,z)) quad([x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1], 0,1,0,rgb);
+        if(!filled(x,y-1,z)) quad([x0,y0,z1],[x1,y0,z1],[x1,y0,z0],[x0,y0,z0], 0,-1,0,rgb);
+        if(!filled(x,y,z+1)) quad([x0,y0,z1],[x0,y1,z1],[x1,y1,z1],[x1,y0,z1], 0,0,1,rgb);
+        if(!filled(x,y,z-1)) quad([x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z0], 0,0,-1,rgb);
+      }
+      if(!pos.length) return;
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+      geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+      geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+      const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.72, metalness:0.0, side:THREE.DoubleSide}));
+      g.add(mesh); render();
+     }catch(e){ console.warn('hull build failed',e); }
+    });
+  }
   function furnitureModel(it,bw,bh,h,col){
     const g=new THREE.Group();
+    if(it.cutout && (it.cutoutSide || it.cutoutTop)){
+      try{ buildHull(g,it,bw,bh,h); return g; }   // נפח אמיתי (א-סינכרוני)
+      catch(e){ console.warn('hull model failed',e); while(g.children.length)g.remove(g.children[0]); }
+    }
     if(it.cutout && it.cutMeta){
       try{ buildCutout(g,it,bw,bh,h); return g; }
       catch(e){ console.warn('cutout model failed',e); while(g.children.length)g.remove(g.children[0]); g.position.set(0,0,0); }
